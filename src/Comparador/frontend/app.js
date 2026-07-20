@@ -1,4 +1,4 @@
-const API_BASE = localStorage.getItem('farma_api') || 'http://localhost:8000';
+const API_BASE = localStorage.getItem('farma_api') || (['localhost','127.0.0.1'].includes(location.hostname) ? 'http://localhost:8000' : '');
 const $ = (selector) => document.querySelector(selector);
 const money = (value) => new Intl.NumberFormat('es-CL',{style:'currency',currency:'CLP',maximumFractionDigits:0}).format(value || 0);
 const COMMUNES_BY_REGION = {
@@ -18,6 +18,8 @@ const safeUrl = (value) => {
     return url.protocol==='https:' ? url.href : '';
   } catch { return ''; }
 };
+const normalizeText = (value='') => value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9%]+/g,' ').trim();
+const STRUCTURAL_WORDS = new Set(['mg','mcg','ug','g','ml','comprimido','comprimidos','tableta','tabletas','capsula','capsulas','sobre','sobres','ampolla','ampollas','unidad','unidades','dosis','parche','parches','ovulo','ovulos','oral','recubierto','recubiertos']);
 const signature = (value) => {
   const text=value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   const doses=[...text.matchAll(/(\d+(?:[.,]\d+)?)\s*(mg|mcg|ug|g|ml|%)(?=\b)/g)].map(match=>`${match[1].replace(',','.')}|${match[2]==='ug'?'mcg':match[2]}`);
@@ -26,23 +28,58 @@ const signature = (value) => {
 };
 const strictProductMatch = (query, product) => {
   const requested=signature(query); const offered=signature(`${product.name} ${product.active_ingredient||''}`);
-  return requested.doses.every(value=>offered.doses.includes(value)) && requested.packages.every(value=>offered.packages.includes(value));
+  const requestedTerms=normalizeText(query).split(' ').filter(term=>term.length>1&&!/^\d/.test(term)&&!STRUCTURAL_WORDS.has(term));
+  const offeredTerms=new Set(normalizeText(`${product.name} ${product.brand||''} ${product.active_ingredient||''}`).split(' '));
+  return requested.doses.every(value=>offered.doses.includes(value))
+    && requested.packages.every(value=>offered.packages.includes(value))
+    && requestedTerms.every(term=>offeredTerms.has(term));
 };
 
-const demoProducts = [
-  {pharmacy:'Ahumada',sku:'A-101',name:'Paracetamol 500 mg 16 comprimidos',brand:'Genérico',active_ingredient:'Paracetamol',price:1290,list_price:1990,available:true,stock_quantity:null,captured_at:'2026-07-20T11:06:40-04:00',url:'https://www.farmaciasahumada.cl/search?q=paracetamol'},
-  {pharmacy:'Dr. Simi',sku:'D-102',name:'Paracetamol 500 mg 20 comprimidos',brand:'Dr. Simi',active_ingredient:'Paracetamol',price:1480,list_price:1960,available:true,stock_quantity:84,captured_at:'2026-07-20T11:50:56-04:00',url:'https://www.drsimi.cl/paracetamol?_q=paracetamol&map=ft'},
-  {pharmacy:'Salcobrand',sku:'S-103',name:'Paracetamol 500 mg 16 comprimidos',brand:'Kitadol',active_ingredient:'Paracetamol',price:1790,list_price:2490,available:true,stock_quantity:null,captured_at:'2026-07-20T11:06:40-04:00',url:'https://salcobrand.cl/search_result?query=paracetamol'},
-  {pharmacy:'Cruz Verde',sku:'C-104',name:'Paracetamol 500 mg 20 comprimidos',brand:'Genérico',active_ingredient:'Paracetamol',price:1990,list_price:2990,available:true,stock_quantity:32,captured_at:'2026-07-20T13:42:21-04:00',url:'https://www.cruzverde.cl/search?query=paracetamol'}
-];
+const staticCatalogCache = new Map();
+let staticManifestPromise;
+async function loadStaticCatalog() {
+  staticManifestPromise ||= fetch('./data/manifest.json').then(response=>{
+    if(!response.ok) throw new Error('Catalogo estatico no disponible');
+    return response.json();
+  });
+  const manifest=await staticManifestPromise;
+  const {region,commune}=locationValue();
+  const entry=manifest.locations[`${region}|${commune}`];
+  if(!entry) return [];
+  if(!staticCatalogCache.has(entry.file)) {
+    staticCatalogCache.set(entry.file,fetch(`./data/${entry.file}`).then(response=>{
+      if(!response.ok) throw new Error('Datos de ubicacion no disponibles');
+      return response.json();
+    }));
+  }
+  return staticCatalogCache.get(entry.file);
+}
+function localScore(query, product) {
+  const normalizedQuery=normalizeText(query);
+  const name=normalizeText(product.name);
+  const searchable=normalizeText(`${product.name} ${product.brand||''} ${product.active_ingredient||''}`);
+  const searchableTerms=new Set(searchable.split(' '));
+  const terms=normalizedQuery.split(' ').filter(Boolean);
+  const coverage=terms.filter(term=>searchableTerms.has(term)).length/Math.max(terms.length,1);
+  return coverage+(name===normalizedQuery?2:name.includes(normalizedQuery)?1:0);
+}
+async function searchStaticCatalog(query) {
+  const products=await loadStaticCatalog();
+  return products.filter(product=>strictProductMatch(query,product))
+    .map(product=>({product,score:localScore(query,product)}))
+    .filter(item=>item.score>=0.5)
+    .sort((a,b)=>b.score-a.score||Number(b.product.available)-Number(a.product.available)||a.product.price-b.product.price)
+    .slice(0,60).map(item=>item.product);
+}
 
 async function api(path, options={}) {
+  if (!API_BASE) throw new Error('API no configurada');
   const response = await fetch(`${API_BASE}${path}`, options);
   if (!response.ok) throw new Error((await response.text()) || 'No se pudo consultar la API');
   return response.json();
 }
 
-function renderResults(products, demo=false) {
+function renderResults(products, source='api') {
   $('#search-status').hidden = true;
   const container = $('#results'); container.innerHTML = '';
   document.querySelector('#demo-note')?.remove();
@@ -60,7 +97,7 @@ function renderResults(products, demo=false) {
     card.innerHTML=`${isBest?'<span class="best-badge"><i>✓</i> Mejor opción</span>':''}<span class="pharmacy">${product.pharmacy}</span><h3>${product.name}</h3><span>${product.brand||'Marca no informada'}</span>${product.active_ingredient?`<small><b>Principio activo:</b> ${product.active_ingredient}</small>`:''}<div><span class="price">${money(product.price)}</span> ${product.list_price?`<span class="old">${money(product.list_price)}</span>`:''}</div><div class="result-meta"><span class="stock-status ${product.available?'in-stock':'out-stock'}">${product.available?'●':'○'} ${stock}</span><span>${commune}, ${region}</span><span>Actualizado: ${formatDate(product.captured_at)}</span></div><small>${isBest?'Coincidencia exacta · Menor precio disponible':'Coincidencia exacta · Comparado'}</small>${action}`;
     container.appendChild(card);
   });
-  if(demo) container.insertAdjacentHTML('beforebegin','<p id="demo-note" class="tool-output"><b>Ejemplo visual:</b> estos datos no corresponden a una consulta en vivo.</p>');
+  if(source==='static') container.insertAdjacentHTML('beforebegin','<p id="demo-note" class="tool-output"><b>Datos del scraping:</b> catálogo completo de la última ejecución disponible.</p>');
 }
 
 function renderApiUnavailable(query) {
@@ -68,15 +105,17 @@ function renderApiUnavailable(query) {
   document.querySelector('#demo-note')?.remove();
   const status=$('#search-status');
   status.hidden=false;
-  status.innerHTML='<div class="empty-icon">!</div><h3>No fue posible consultar los datos reales</h3><p>La página no está conectada al backend. No mostraremos productos ficticios para esta consulta.</p><button id="show-demo-button" class="button" type="button">Ver ejemplo con paracetamol</button>';
-  $('#show-demo-button').addEventListener('click',()=>renderResults(demoProducts,true));
+  status.innerHTML=`<div class="empty-icon">!</div><h3>No fue posible cargar el catálogo</h3><p>No se pudo consultar ni la API ni los archivos del scraping para “${query}”. Vuelve a desplegar el sitio para regenerar los datos.</p>`;
 }
 
 $('#search-form').addEventListener('submit', async (event)=>{
   event.preventDefault(); const q=$('#search-input').value.trim(); const {region,commune}=locationValue();
   $('#search-status').hidden=false; $('#search-status').innerHTML='<h3>Comparando farmacias…</h3>';
   try { const data=await api(`/api/search?q=${encodeURIComponent(q)}&region=${encodeURIComponent(region)}&commune=${encodeURIComponent(commune)}`); renderResults(data.results); }
-  catch { renderApiUnavailable(q); }
+  catch {
+    try { renderResults(await searchStaticCatalog(q),'static'); }
+    catch { renderApiUnavailable(q); }
+  }
   document.querySelector('#comparar').scrollIntoView({behavior:'smooth'});
 });
 

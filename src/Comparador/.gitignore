@@ -5,3 +5,4 @@ backend/app/services/__pycache__/
 backend/tests/__pycache__/
 .pytest_cache/
 .env
+frontend/data/*.json
