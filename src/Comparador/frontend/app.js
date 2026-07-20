@@ -19,10 +19,15 @@ async function api(path, options={}) {
 function renderResults(products, demo=false) {
   $('#search-status').hidden = true;
   const container = $('#results'); container.innerHTML = '';
+  document.querySelector('#demo-note')?.remove();
   if (!products.length) { $('#search-status').hidden=false; $('#search-status').innerHTML='<h3>Sin coincidencias</h3><p>Prueba con otro nombre o principio activo.</p>'; return; }
-  products.sort((a,b)=>a.price-b.price).forEach((product,index)=>{
-    const card=document.createElement('article'); card.className='result-card';
-    card.innerHTML=`<span class="pharmacy">${product.pharmacy}</span><h3>${product.name}</h3><span>${product.brand||'Marca no informada'}</span><div><span class="price">${money(product.price)}</span> ${product.list_price?`<span class="old">${money(product.list_price)}</span>`:''}</div><small>${product.available?'Disponible':'Confirma disponibilidad'} · ${index===0?'Mejor precio':'Comparado'}</small><a href="${product.url||'#'}" target="_blank" rel="noopener">Ver en farmacia →</a>`;
+  products.sort((a,b)=>Number(b.available)-Number(a.available)||a.price-b.price);
+  const bestIndex=products.findIndex(product=>product.available!==false);
+  products.forEach((product,index)=>{
+    const isBest=index===bestIndex;
+    const card=document.createElement('article');
+    card.className=`result-card${isBest?' result-card--best':''}`;
+    card.innerHTML=`${isBest?'<span class="best-badge"><i>✓</i> Mejor opción</span>':''}<span class="pharmacy">${product.pharmacy}</span><h3>${product.name}</h3><span>${product.brand||'Marca no informada'}</span><div><span class="price">${money(product.price)}</span> ${product.list_price?`<span class="old">${money(product.list_price)}</span>`:''}</div><small>${product.available?'Disponible':'Confirma disponibilidad'} · ${isBest?'Menor precio disponible':'Comparado'}</small><a href="${product.url||'#'}" target="_blank" rel="noopener">Ver en farmacia →</a>`;
     container.appendChild(card);
   });
   if(demo) container.insertAdjacentHTML('beforebegin','<p id="demo-note" class="tool-output">Vista demostrativa. Despliega el backend para consultar tus CSV reales.</p>');
