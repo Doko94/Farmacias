@@ -12,6 +12,12 @@ const formatDate = (value) => {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('es-CL',{dateStyle:'medium',timeStyle:'short'}).format(date);
 };
+const safeUrl = (value) => {
+  try {
+    const url=new URL(value);
+    return url.protocol==='https:' ? url.href : '';
+  } catch { return ''; }
+};
 const signature = (value) => {
   const text=value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   const doses=[...text.matchAll(/(\d+(?:[.,]\d+)?)\s*(mg|mcg|ug|g|ml|%)(?=\b)/g)].map(match=>`${match[1].replace(',','.')}|${match[2]==='ug'?'mcg':match[2]}`);
@@ -24,10 +30,10 @@ const strictProductMatch = (query, product) => {
 };
 
 const demoProducts = [
-  {pharmacy:'Ahumada',sku:'A-101',name:'Paracetamol 500 mg 16 comprimidos',brand:'Genérico',active_ingredient:'Paracetamol',price:1290,list_price:1990,available:true,stock_quantity:null,captured_at:'2026-07-20T11:06:40-04:00',url:'#'},
-  {pharmacy:'Dr. Simi',sku:'D-102',name:'Paracetamol 500 mg 20 comprimidos',brand:'Dr. Simi',active_ingredient:'Paracetamol',price:1480,list_price:1960,available:true,stock_quantity:84,captured_at:'2026-07-20T11:50:56-04:00',url:'#'},
-  {pharmacy:'Salcobrand',sku:'S-103',name:'Paracetamol 500 mg 16 comprimidos',brand:'Kitadol',active_ingredient:'Paracetamol',price:1790,list_price:2490,available:true,stock_quantity:null,captured_at:'2026-07-20T11:06:40-04:00',url:'#'},
-  {pharmacy:'Cruz Verde',sku:'C-104',name:'Paracetamol 500 mg 20 comprimidos',brand:'Genérico',active_ingredient:'Paracetamol',price:1990,list_price:2990,available:true,stock_quantity:32,captured_at:'2026-07-20T13:42:21-04:00',url:'#'}
+  {pharmacy:'Ahumada',sku:'A-101',name:'Paracetamol 500 mg 16 comprimidos',brand:'Genérico',active_ingredient:'Paracetamol',price:1290,list_price:1990,available:true,stock_quantity:null,captured_at:'2026-07-20T11:06:40-04:00',url:'https://www.farmaciasahumada.cl/search?q=paracetamol'},
+  {pharmacy:'Dr. Simi',sku:'D-102',name:'Paracetamol 500 mg 20 comprimidos',brand:'Dr. Simi',active_ingredient:'Paracetamol',price:1480,list_price:1960,available:true,stock_quantity:84,captured_at:'2026-07-20T11:50:56-04:00',url:'https://www.drsimi.cl/paracetamol?_q=paracetamol&map=ft'},
+  {pharmacy:'Salcobrand',sku:'S-103',name:'Paracetamol 500 mg 16 comprimidos',brand:'Kitadol',active_ingredient:'Paracetamol',price:1790,list_price:2490,available:true,stock_quantity:null,captured_at:'2026-07-20T11:06:40-04:00',url:'https://salcobrand.cl/search_result?query=paracetamol'},
+  {pharmacy:'Cruz Verde',sku:'C-104',name:'Paracetamol 500 mg 20 comprimidos',brand:'Genérico',active_ingredient:'Paracetamol',price:1990,list_price:2990,available:true,stock_quantity:32,captured_at:'2026-07-20T13:42:21-04:00',url:'https://www.cruzverde.cl/search?query=paracetamol'}
 ];
 
 async function api(path, options={}) {
@@ -49,17 +55,28 @@ function renderResults(products, demo=false) {
     card.className=`result-card${isBest?' result-card--best':''}`;
     const stock=product.stock_quantity!==null&&product.stock_quantity!==undefined?`${product.stock_quantity} unidades informadas`:(product.available?'Stock disponible':'Sin stock');
     const {region,commune}=locationValue();
-    card.innerHTML=`${isBest?'<span class="best-badge"><i>✓</i> Mejor opción</span>':''}<span class="pharmacy">${product.pharmacy}</span><h3>${product.name}</h3><span>${product.brand||'Marca no informada'}</span>${product.active_ingredient?`<small><b>Principio activo:</b> ${product.active_ingredient}</small>`:''}<div><span class="price">${money(product.price)}</span> ${product.list_price?`<span class="old">${money(product.list_price)}</span>`:''}</div><div class="result-meta"><span class="stock-status ${product.available?'in-stock':'out-stock'}">${product.available?'●':'○'} ${stock}</span><span>${commune}, ${region}</span><span>Actualizado: ${formatDate(product.captured_at)}</span></div><small>${isBest?'Coincidencia exacta · Menor precio disponible':'Coincidencia exacta · Comparado'}</small><a href="${product.url||'#'}" target="_blank" rel="noopener">Ver en farmacia →</a>`;
+    const destination=safeUrl(product.url);
+    const action=destination?`<a href="${destination}" target="_blank" rel="noopener noreferrer">Ver en farmacia →</a>`:'<span class="unavailable-link">Enlace no informado por la farmacia</span>';
+    card.innerHTML=`${isBest?'<span class="best-badge"><i>✓</i> Mejor opción</span>':''}<span class="pharmacy">${product.pharmacy}</span><h3>${product.name}</h3><span>${product.brand||'Marca no informada'}</span>${product.active_ingredient?`<small><b>Principio activo:</b> ${product.active_ingredient}</small>`:''}<div><span class="price">${money(product.price)}</span> ${product.list_price?`<span class="old">${money(product.list_price)}</span>`:''}</div><div class="result-meta"><span class="stock-status ${product.available?'in-stock':'out-stock'}">${product.available?'●':'○'} ${stock}</span><span>${commune}, ${region}</span><span>Actualizado: ${formatDate(product.captured_at)}</span></div><small>${isBest?'Coincidencia exacta · Menor precio disponible':'Coincidencia exacta · Comparado'}</small>${action}`;
     container.appendChild(card);
   });
-  if(demo) container.insertAdjacentHTML('beforebegin','<p id="demo-note" class="tool-output">Vista demostrativa. Despliega el backend para consultar tus CSV reales.</p>');
+  if(demo) container.insertAdjacentHTML('beforebegin','<p id="demo-note" class="tool-output"><b>Ejemplo visual:</b> estos datos no corresponden a una consulta en vivo.</p>');
+}
+
+function renderApiUnavailable(query) {
+  $('#results').innerHTML='';
+  document.querySelector('#demo-note')?.remove();
+  const status=$('#search-status');
+  status.hidden=false;
+  status.innerHTML='<div class="empty-icon">!</div><h3>No fue posible consultar los datos reales</h3><p>La página no está conectada al backend. No mostraremos productos ficticios para esta consulta.</p><button id="show-demo-button" class="button" type="button">Ver ejemplo con paracetamol</button>';
+  $('#show-demo-button').addEventListener('click',()=>renderResults(demoProducts,true));
 }
 
 $('#search-form').addEventListener('submit', async (event)=>{
   event.preventDefault(); const q=$('#search-input').value.trim(); const {region,commune}=locationValue();
   $('#search-status').hidden=false; $('#search-status').innerHTML='<h3>Comparando farmacias…</h3>';
   try { const data=await api(`/api/search?q=${encodeURIComponent(q)}&region=${encodeURIComponent(region)}&commune=${encodeURIComponent(commune)}`); renderResults(data.results); }
-  catch { renderResults(demoProducts.filter(p=>(p.name.toLowerCase().includes(q.split(' ')[0].toLowerCase())||q.length>1)&&strictProductMatch(q,p)),true); }
+  catch { renderApiUnavailable(q); }
   document.querySelector('#comparar').scrollIntoView({behavior:'smooth'});
 });
 

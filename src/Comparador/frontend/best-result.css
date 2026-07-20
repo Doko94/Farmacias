@@ -78,3 +78,10 @@
 .stock-status.out-stock {
   color: #b44242;
 }
+
+.unavailable-link {
+  margin-top: auto;
+  color: #7b8d89;
+  font-size: 12px;
+  font-weight: 700;
+}
