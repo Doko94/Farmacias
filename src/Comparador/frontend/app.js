@@ -158,6 +158,7 @@ async function api(path, options={}) {
 
 function renderResults(products, source='api') {
   updateHeroSearch(products,$('#search-input').value.trim());
+  $('#clear-results').hidden=false;
   $('#search-status').hidden = true;
   const container = $('#results'); container.innerHTML = '';
   document.querySelector('#demo-note')?.remove();
@@ -194,13 +195,26 @@ function renderApiUnavailable(query) {
 
 $('#search-form').addEventListener('submit', async (event)=>{
   event.preventDefault(); const q=$('#search-input').value.trim(); const {region,commune}=locationValue();
+  document.querySelector('#comparar').scrollIntoView({behavior:'smooth',block:'start'});
+  $('#clear-results').hidden=false;
   $('#search-status').hidden=false; $('#search-status').innerHTML='<h3>Comparando farmacias…</h3>';
   try { const data=await api(`/api/search?q=${encodeURIComponent(q)}&region=${encodeURIComponent(region)}&commune=${encodeURIComponent(commune)}`); renderResults(data.results); }
   catch {
     try { renderResults(await searchStaticCatalog(q),'static'); }
     catch { renderApiUnavailable(q); }
   }
-  document.querySelector('#comparar').scrollIntoView({behavior:'smooth'});
+});
+
+$('#clear-results').addEventListener('click',()=>{
+  $('#results').innerHTML='';
+  document.querySelector('#demo-note')?.remove();
+  const status=$('#search-status');
+  status.hidden=false;
+  status.innerHTML='<div class="empty-icon">⌕</div><h3>Busca tu primer medicamento</h3><p>Escribe un nombre, marca o principio activo arriba.</p>';
+  $('#search-input').value='';
+  $('#clear-results').hidden=true;
+  updateHeroCoverage();
+  $('#search-input').focus({preventScroll:true});
 });
 
 const PRESENTATION_UNITS = {

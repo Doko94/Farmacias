@@ -172,3 +172,37 @@
   font-weight: 500;
   line-height: 1.45;
 }
+
+.results-heading-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  max-width: 440px;
+}
+
+.results-heading-actions p {
+  margin: 0;
+  color: #5f7472;
+  line-height: 1.7;
+}
+
+.clear-results-button {
+  padding: 9px 14px;
+  border: 1px solid #b8cbc4;
+  border-radius: 999px;
+  background: #fff;
+  color: #087f68;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.clear-results-button:hover {
+  border-color: #087f68;
+  background: #f1fbf7;
+}
+
+.clear-results-button[hidden] {
+  display: none;
+}
