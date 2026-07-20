@@ -7,7 +7,7 @@ from typing import Any
 from ..config import CSV_SOURCES
 from ..database import connect
 from ..models import ProductOffer
-from .matching import match_score
+from .matching import match_score, normalize, structured_match
 
 
 def _integer(value: Any) -> int | None:
@@ -21,6 +21,17 @@ def _boolean(value: Any, default: bool = True) -> bool:
     if value in (None, ""):
         return default
     return str(value).strip().casefold() in {"true", "1", "si", "sí", "yes"}
+
+
+def _available(value: Any, default: bool = True) -> bool:
+    if value in (None, ""):
+        return default
+    text = str(value).strip().casefold()
+    if text not in {"true", "false", "si", "sí", "yes", "no"}:
+        numeric = _integer(value)
+        if numeric is not None:
+            return numeric > 0
+    return _boolean(value, default)
 
 
 def _pick(row: dict[str, str], *names: str) -> str:
@@ -63,7 +74,10 @@ class Catalog:
                         category=_pick(row, "category_path", "categoria_1"),
                         active_ingredient=_pick(row, "principio_activo"),
                         bioequivalent=_boolean(_pick(row, "bioequivalente"), False),
-                        available=_boolean(available_field, True),
+                        available=_available(available_field, True),
+                        stock_quantity=_integer(
+                            _pick(row, "stock", "cantidad_stock_catalogo")
+                        ),
                         captured_at=_pick(row, "captured_at", "capturado_en"),
                     ))
         self.offers = offers
@@ -75,13 +89,24 @@ class Catalog:
     ) -> list[tuple[ProductOffer, float]]:
         results = []
         for offer in self.offers:
-            if offer.region.casefold() != region.casefold():
+            if normalize(offer.region) != normalize(region):
                 continue
-            if offer.commune.casefold() != commune.casefold():
+            if normalize(offer.commune) != normalize(commune):
                 continue
             if not include_unavailable and not offer.available:
                 continue
+            candidate = " ".join((offer.name, offer.brand, offer.active_ingredient))
+            if not structured_match(query, candidate):
+                continue
             score = match_score(query, offer.normalized_name)
+            if offer.active_ingredient:
+                ingredient_score = match_score(query, offer.active_ingredient)
+                ingredient = normalize(offer.active_ingredient)
+                query_normalized = normalize(query)
+                ingredient_bonus = (
+                    0.12 if ingredient and ingredient in query_normalized else 0
+                )
+                score = min(1.0, max(score, ingredient_score) + ingredient_bonus)
             if score >= 0.48:
                 results.append((offer, score))
         results.sort(key=lambda item: (-item[1], item[0].price))

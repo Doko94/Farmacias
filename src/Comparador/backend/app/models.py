@@ -20,6 +20,7 @@ class ProductOffer:
     active_ingredient: str = ""
     bioequivalent: bool = False
     available: bool = True
+    stock_quantity: int | None = None
     captured_at: str = ""
     normalized_name: str = field(init=False)
 

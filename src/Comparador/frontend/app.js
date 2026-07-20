@@ -1,13 +1,33 @@
 const API_BASE = localStorage.getItem('farma_api') || 'http://localhost:8000';
 const $ = (selector) => document.querySelector(selector);
 const money = (value) => new Intl.NumberFormat('es-CL',{style:'currency',currency:'CLP',maximumFractionDigits:0}).format(value || 0);
-const locationValue = () => { const [region, commune] = $('#location-select').value.split('|'); return {region, commune}; };
+const COMMUNES_BY_REGION = {
+  Tarapaca: ['Iquique'],
+  'Arica y Parinacota': ['Arica'],
+  Antofagasta: ['Antofagasta']
+};
+const locationValue = () => ({region:$('#region-select').value,commune:$('#commune-select').value});
+const formatDate = (value) => {
+  if (!value) return 'Fecha no informada';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('es-CL',{dateStyle:'medium',timeStyle:'short'}).format(date);
+};
+const signature = (value) => {
+  const text=value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const doses=[...text.matchAll(/(\d+(?:[.,]\d+)?)\s*(mg|mcg|ug|g|ml|%)(?=\b)/g)].map(match=>`${match[1].replace(',','.')}|${match[2]==='ug'?'mcg':match[2]}`);
+  const packages=[...text.matchAll(/\b(\d+)\s*(comprimidos?|tabletas?|capsulas?|sobres?|ampollas?|unidades?|dosis|parches?|ovulos?)\b/g)].map(match=>`${match[1]}|${match[2].replace(/s$/,'')}`);
+  return {doses,packages};
+};
+const strictProductMatch = (query, product) => {
+  const requested=signature(query); const offered=signature(`${product.name} ${product.active_ingredient||''}`);
+  return requested.doses.every(value=>offered.doses.includes(value)) && requested.packages.every(value=>offered.packages.includes(value));
+};
 
 const demoProducts = [
-  {pharmacy:'Ahumada',sku:'A-101',name:'Paracetamol 500 mg 16 comprimidos',brand:'Genérico',price:1290,list_price:1990,available:true,url:'#'},
-  {pharmacy:'Dr. Simi',sku:'D-102',name:'Paracetamol 500 mg 20 comprimidos',brand:'Dr. Simi',price:1480,list_price:1960,available:true,url:'#'},
-  {pharmacy:'Salcobrand',sku:'S-103',name:'Paracetamol 500 mg 16 comprimidos',brand:'Kitadol',price:1790,list_price:2490,available:true,url:'#'},
-  {pharmacy:'Cruz Verde',sku:'C-104',name:'Paracetamol 500 mg 20 comprimidos',brand:'Genérico',price:1990,list_price:2990,available:true,url:'#'}
+  {pharmacy:'Ahumada',sku:'A-101',name:'Paracetamol 500 mg 16 comprimidos',brand:'Genérico',active_ingredient:'Paracetamol',price:1290,list_price:1990,available:true,stock_quantity:null,captured_at:'2026-07-20T11:06:40-04:00',url:'#'},
+  {pharmacy:'Dr. Simi',sku:'D-102',name:'Paracetamol 500 mg 20 comprimidos',brand:'Dr. Simi',active_ingredient:'Paracetamol',price:1480,list_price:1960,available:true,stock_quantity:84,captured_at:'2026-07-20T11:50:56-04:00',url:'#'},
+  {pharmacy:'Salcobrand',sku:'S-103',name:'Paracetamol 500 mg 16 comprimidos',brand:'Kitadol',active_ingredient:'Paracetamol',price:1790,list_price:2490,available:true,stock_quantity:null,captured_at:'2026-07-20T11:06:40-04:00',url:'#'},
+  {pharmacy:'Cruz Verde',sku:'C-104',name:'Paracetamol 500 mg 20 comprimidos',brand:'Genérico',active_ingredient:'Paracetamol',price:1990,list_price:2990,available:true,stock_quantity:32,captured_at:'2026-07-20T13:42:21-04:00',url:'#'}
 ];
 
 async function api(path, options={}) {
@@ -27,7 +47,9 @@ function renderResults(products, demo=false) {
     const isBest=index===bestIndex;
     const card=document.createElement('article');
     card.className=`result-card${isBest?' result-card--best':''}`;
-    card.innerHTML=`${isBest?'<span class="best-badge"><i>✓</i> Mejor opción</span>':''}<span class="pharmacy">${product.pharmacy}</span><h3>${product.name}</h3><span>${product.brand||'Marca no informada'}</span><div><span class="price">${money(product.price)}</span> ${product.list_price?`<span class="old">${money(product.list_price)}</span>`:''}</div><small>${product.available?'Disponible':'Confirma disponibilidad'} · ${isBest?'Menor precio disponible':'Comparado'}</small><a href="${product.url||'#'}" target="_blank" rel="noopener">Ver en farmacia →</a>`;
+    const stock=product.stock_quantity!==null&&product.stock_quantity!==undefined?`${product.stock_quantity} unidades informadas`:(product.available?'Stock disponible':'Sin stock');
+    const {region,commune}=locationValue();
+    card.innerHTML=`${isBest?'<span class="best-badge"><i>✓</i> Mejor opción</span>':''}<span class="pharmacy">${product.pharmacy}</span><h3>${product.name}</h3><span>${product.brand||'Marca no informada'}</span>${product.active_ingredient?`<small><b>Principio activo:</b> ${product.active_ingredient}</small>`:''}<div><span class="price">${money(product.price)}</span> ${product.list_price?`<span class="old">${money(product.list_price)}</span>`:''}</div><div class="result-meta"><span class="stock-status ${product.available?'in-stock':'out-stock'}">${product.available?'●':'○'} ${stock}</span><span>${commune}, ${region}</span><span>Actualizado: ${formatDate(product.captured_at)}</span></div><small>${isBest?'Coincidencia exacta · Menor precio disponible':'Coincidencia exacta · Comparado'}</small><a href="${product.url||'#'}" target="_blank" rel="noopener">Ver en farmacia →</a>`;
     container.appendChild(card);
   });
   if(demo) container.insertAdjacentHTML('beforebegin','<p id="demo-note" class="tool-output">Vista demostrativa. Despliega el backend para consultar tus CSV reales.</p>');
@@ -37,7 +59,7 @@ $('#search-form').addEventListener('submit', async (event)=>{
   event.preventDefault(); const q=$('#search-input').value.trim(); const {region,commune}=locationValue();
   $('#search-status').hidden=false; $('#search-status').innerHTML='<h3>Comparando farmacias…</h3>';
   try { const data=await api(`/api/search?q=${encodeURIComponent(q)}&region=${encodeURIComponent(region)}&commune=${encodeURIComponent(commune)}`); renderResults(data.results); }
-  catch { renderResults(demoProducts.filter(p=>p.name.toLowerCase().includes(q.split(' ')[0].toLowerCase())||q.length>1),true); }
+  catch { renderResults(demoProducts.filter(p=>(p.name.toLowerCase().includes(q.split(' ')[0].toLowerCase())||q.length>1)&&strictProductMatch(q,p)),true); }
   document.querySelector('#comparar').scrollIntoView({behavior:'smooth'});
 });
 
@@ -70,3 +92,13 @@ $('#alert-form').addEventListener('submit',async(event)=>{
 });
 
 $('.menu-btn').addEventListener('click',()=>{ const links=$('.nav-links'); links.classList.toggle('open'); $('.menu-btn').setAttribute('aria-expanded',links.classList.contains('open')); });
+
+$('#region-select').addEventListener('change',()=>{
+  const communeSelect=$('#commune-select');
+  communeSelect.innerHTML='';
+  (COMMUNES_BY_REGION[$('#region-select').value]||[]).forEach(commune=>{
+    const option=document.createElement('option');
+    option.value=commune; option.textContent=commune;
+    communeSelect.appendChild(option);
+  });
+});

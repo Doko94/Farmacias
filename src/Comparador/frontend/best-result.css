@@ -56,3 +56,25 @@
   color: #102a2a;
   font-style: normal;
 }
+
+.result-meta {
+  display: grid;
+  gap: 6px;
+  padding: 11px 12px;
+  border-radius: 11px;
+  background: rgba(8, 127, 104, 0.06);
+  color: #5f7472;
+  font-size: 11px;
+}
+
+.stock-status {
+  font-weight: 800;
+}
+
+.stock-status.in-stock {
+  color: #087f68;
+}
+
+.stock-status.out-stock {
+  color: #b44242;
+}
