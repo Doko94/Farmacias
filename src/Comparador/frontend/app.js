@@ -103,7 +103,7 @@ async function updateHeroCoverage() {
     if(!entry) throw new Error('Ubicacion sin catalogo');
     $('#hero-metric-label').textContent=`Ofertas disponibles en ${commune}`;
     $('#hero-metric-value').textContent=new Intl.NumberFormat('es-CL').format(entry.offers);
-    $('#hero-metric-context').textContent='productos y precios obtenidos del último scraping';
+    $('#hero-metric-context').textContent='precios consolidados desde las farmacias participantes';
     $('#hero-metric-detail').textContent=`${entry.pharmacies} farmacias integradas`;
     $('#hero-metric-percent').textContent='Catálogo real';
     $('#hero-metric-date').textContent=`Última captura: ${formatDate(entry.updated_at)}`;
@@ -181,7 +181,7 @@ function renderResults(products, source='api') {
     card.innerHTML=`${isBest?'<span class="best-badge"><i>✓</i> Mejor opción</span>':''}${pharmacyTitle}<h3>${product.name}</h3><span>${product.brand||'Marca no informada'}</span>${product.active_ingredient?`<small><b>Principio activo:</b> ${product.active_ingredient}</small>`:''}${badges}${fonasaPrice}<div><span class="price">${money(product.price)}</span> ${product.list_price?`<span class="old">${money(product.list_price)}</span>`:''}</div><div class="result-meta"><span class="stock-status ${product.available?'in-stock':'out-stock'}">${product.available?'●':'○'} ${stock}</span><span>${commune}, ${region}</span><span>Actualizado: ${formatDate(product.captured_at)}</span></div><small>${isBest?'Coincidencia exacta · Menor precio disponible':'Coincidencia exacta · Comparado'}</small>${action}`;
     container.appendChild(card);
   });
-  if(source==='static') container.insertAdjacentHTML('beforebegin','<p id="demo-note" class="tool-output"><b>Datos del scraping:</b> catálogo completo de la última ejecución disponible.</p>');
+  if(source==='static') container.insertAdjacentHTML('beforebegin','<p id="demo-note" class="tool-output"><b>Información de precios:</b> última actualización disponible para la ubicación seleccionada.</p>');
 }
 
 function renderApiUnavailable(query) {
@@ -189,7 +189,7 @@ function renderApiUnavailable(query) {
   document.querySelector('#demo-note')?.remove();
   const status=$('#search-status');
   status.hidden=false;
-  status.innerHTML=`<div class="empty-icon">!</div><h3>No fue posible cargar el catálogo</h3><p>No se pudo consultar ni la API ni los archivos del scraping para “${query}”. Vuelve a desplegar el sitio para regenerar los datos.</p>`;
+  status.innerHTML=`<div class="empty-icon">!</div><h3>No fue posible cargar el catálogo</h3><p>La información de precios no está disponible temporalmente para “${query}”. Intenta nuevamente más tarde.</p>`;
 }
 
 $('#search-form').addEventListener('submit', async (event)=>{
@@ -203,12 +203,112 @@ $('#search-form').addEventListener('submit', async (event)=>{
   document.querySelector('#comparar').scrollIntoView({behavior:'smooth'});
 });
 
+const PRESENTATION_UNITS = {
+  comprimido:'comprimidos', tableta:'tabletas', capsula:'cápsulas', sobre:'sobres',
+  ampolla:'ampollas', unidad:'unidades', parche:'parches', ovulo:'óvulos',
+  dosis:'dosis', ml:'mL', g:'gramos'
+};
+let treatmentSuggestions=[]; let treatmentTimer;
+function inferPresentation(name) {
+  const text=name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\bgr\b/g,'g');
+  const solid=text.match(/\b(\d+(?:[.,]\d+)?)\s*(comprimidos?|tabletas?|capsulas?|sobres?|ampollas?|unidades?|parches?|ovulos?|dosis)\b/i);
+  if(solid) {
+    const token=solid[2];
+    const raw=token.startsWith('comprimido')?'comprimido':token.startsWith('tableta')?'tableta':token.startsWith('capsula')?'capsula':token.startsWith('sobre')?'sobre':token.startsWith('ampolla')?'ampolla':token.startsWith('unidad')?'unidad':token.startsWith('parche')?'parche':token.startsWith('ovulo')?'ovulo':'dosis';
+    return {quantity:Number(solid[1].replace(',','.')),unit:raw,label:PRESENTATION_UNITS[raw]||solid[2]};
+  }
+  for(const unit of ['ml','g']) {
+    const matches=[...text.matchAll(new RegExp(`\\b(\\d+(?:[.,]\\d+)?)\\s*${unit}\\b`,'gi'))];
+    if(matches.length) {
+      const match=matches.at(-1);
+      return {quantity:Number(match[1].replace(',','.')),unit,label:PRESENTATION_UNITS[unit]};
+    }
+  }
+  return null;
+}
+function applyPresentation(productName) {
+  const presentation=inferPresentation(productName);
+  $('#units-pack').dataset.product=normalizeText(productName);
+  if(!presentation) {
+    $('#units-pack').value='';
+    $('#package-quantity-label').textContent='Contenido por envase';
+    $('#dose-quantity-label').textContent='Cantidad por dosis';
+    $('#presentation-help').textContent='No pudimos detectar el contenido. Revísalo en el envase o ficha del producto.';
+    return false;
+  }
+  $('#units-pack').value=presentation.quantity;
+  $('#package-quantity-label').textContent=`${presentation.label} por envase`;
+  $('#dose-quantity-label').textContent=`${presentation.label} por dosis`;
+  $('#presentation-help').textContent=`Detectado automáticamente: ${presentation.quantity} ${presentation.label}. Puedes corregirlo.`;
+  return true;
+}
+async function suggestTreatmentProducts(query) {
+  const normalized=normalizeText(query);
+  if(normalized.length<3) return [];
+  const products=await loadStaticCatalog();
+  const unique=new Map();
+  products.forEach(product=>{
+    const searchable=normalizeText(`${product.name} ${product.brand||''} ${product.active_ingredient||''}`);
+    if(!searchable.includes(normalized)) return;
+    const key=normalizeText(product.name);
+    const current=unique.get(key);
+    if(!current||product.price<current.price) unique.set(key,product);
+  });
+  return [...unique.values()].sort((a,b)=>a.name.localeCompare(b.name,'es')||a.price-b.price).slice(0,30);
+}
+async function refreshTreatmentSuggestions() {
+  const query=$('#treatment-query').value.trim();
+  try { treatmentSuggestions=await suggestTreatmentProducts(query); }
+  catch { treatmentSuggestions=[]; }
+  const list=$('#treatment-products'); list.innerHTML='';
+  treatmentSuggestions.forEach(product=>{
+    const option=document.createElement('option');
+    option.value=product.name; option.label=`${product.pharmacy} · ${money(product.price)}`;
+    list.appendChild(option);
+  });
+  const selected=treatmentSuggestions.find(product=>normalizeText(product.name)===normalizeText(query));
+  if(selected) applyPresentation(selected.name);
+}
+$('#treatment-query').addEventListener('input',()=>{
+  clearTimeout(treatmentTimer);
+  treatmentTimer=setTimeout(refreshTreatmentSuggestions,300);
+});
+$('#treatment-query').addEventListener('change',refreshTreatmentSuggestions);
+
 $('#treatment-form').addEventListener('submit', async (event)=>{
   event.preventDefault(); const {region,commune}=locationValue();
-  const body={region,commune,days:+$('#treatment-days').value,items:[{query:$('#treatment-query').value,units_per_dose:+$('#units-dose').value,doses_per_day:+$('#doses-day').value,units_per_package:+$('#units-pack').value}]};
-  let result; try { result=await api('/api/treatments/monthly-cost',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); }
-  catch { const packages=Math.ceil(body.items[0].units_per_dose*body.items[0].doses_per_day*body.days/body.items[0].units_per_package); result={total:packages*1290,items:[{packages,pharmacy:'Ahumada'}]}; }
-  $('#treatment-result').innerHTML=`<span>Costo estimado para ${body.days} días</span><strong>${money(result.total)}</strong><p>${result.items[0]?.packages||0} envase(s) · mejor alternativa ${result.items[0]?.pharmacy||'sin coincidencia'}</p>`;
+  const query=$('#treatment-query').value.trim();
+  let offers=[];
+  try {
+    const data=await api(`/api/search?q=${encodeURIComponent(query)}&region=${encodeURIComponent(region)}&commune=${encodeURIComponent(commune)}&limit=100`);
+    offers=data.results;
+  } catch {
+    try { offers=await searchStaticCatalog(query); } catch { offers=[]; }
+  }
+  const exactOffers=offers.filter(product=>normalizeText(product.name)===normalizeText(query)&&product.available!==false);
+  if(!exactOffers.length) {
+    $('#treatment-result').innerHTML='<span>Selecciona una presentación</span><strong>—</strong><p>Elige un producto exacto de las sugerencias para calcular con su precio y contenido reales.</p>';
+    return;
+  }
+  if($('#units-pack').dataset.product!==normalizeText(exactOffers[0].name)) {
+    applyPresentation(exactOffers[0].name);
+  }
+  const unitsPerPackage=Number($('#units-pack').value);
+  if(!Number.isFinite(unitsPerPackage)||unitsPerPackage<=0) {
+    $('#treatment-result').innerHTML='<span>Contenido por confirmar</span><strong>—</strong><p>Indica el contenido señalado en el envase o en la ficha del medicamento.</p>';
+    return;
+  }
+  const body={region,commune,days:+$('#treatment-days').value,items:[{query,units_per_dose:+$('#units-dose').value,doses_per_day:+$('#doses-day').value,units_per_package:unitsPerPackage}]};
+  let result;
+  try { result=await api('/api/treatments/monthly-cost',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); }
+  catch {
+    const offer=exactOffers.sort((a,b)=>a.price-b.price)[0];
+    const required=body.items[0].units_per_dose*body.items[0].doses_per_day*body.days;
+    const packages=Math.ceil(required/unitsPerPackage);
+    result={total:packages*offer.price,items:[{packages,pharmacy:offer.pharmacy,product:offer.name}]};
+  }
+  const item=result.items[0];
+  $('#treatment-result').innerHTML=`<span>Costo estimado para ${body.days} días</span><strong>${money(result.total)}</strong><p>${item?.packages||0} envase(s) · ${item?.product||query}<br>Mejor alternativa disponible: ${item?.pharmacy||'sin coincidencia'}</p>`;
 });
 
 $('#recipe-file').addEventListener('change', async (event)=>{

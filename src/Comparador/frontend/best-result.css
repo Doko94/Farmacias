@@ -163,3 +163,12 @@
   color: #9fc1ba;
   font-size: 10px;
 }
+
+.field-help {
+  display: block;
+  margin-top: 7px;
+  color: #71837f;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.45;
+}

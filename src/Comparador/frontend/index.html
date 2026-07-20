@@ -90,13 +90,13 @@
     </section>
 
     <section id="tratamiento" class="section container">
-      <div class="section-heading"><div><span class="kicker">PLANIFICADOR</span><h2>Calcula el costo mensual de tu tratamiento</h2></div><p>Indica dosis y contenido del envase. Calculamos cuántos envases necesitas para el período.</p></div>
+      <div class="section-heading"><div><span class="kicker">PLANIFICADOR</span><h2>Calcula el costo mensual de tu tratamiento</h2></div><p>Selecciona una presentación del catálogo. Detectamos automáticamente el contenido del envase y puedes corregirlo si es necesario.</p></div>
       <div class="calculator-grid">
         <form id="treatment-form" class="tool-card form-grid">
-          <label>Medicamento<input id="treatment-query" required value="Paracetamol 500 mg"></label>
-          <label>Unidades por dosis<input id="units-dose" type="number" min="0.1" step="0.1" value="1"></label>
+          <label>Medicamento y presentación<input id="treatment-query" list="treatment-products" required autocomplete="off" placeholder="Ej.: Paracetamol 500 mg 16 comprimidos"><datalist id="treatment-products"></datalist></label>
+          <label><span id="dose-quantity-label">Unidades por dosis</span><input id="units-dose" type="number" min="0.1" step="0.1" value="1"></label>
           <label>Dosis al día<input id="doses-day" type="number" min="0.1" step="0.1" value="2"></label>
-          <label>Unidades por envase<input id="units-pack" type="number" min="1" value="20"></label>
+          <label><span id="package-quantity-label">Contenido por envase</span><input id="units-pack" type="number" min="0.1" step="0.1" placeholder="Se detecta desde el producto"><small id="presentation-help" class="field-help">Selecciona una sugerencia para completar este dato.</small></label>
           <label>Días<input id="treatment-days" type="number" min="1" max="366" value="30"></label>
           <button class="button" type="submit">Calcular tratamiento</button>
         </form>
