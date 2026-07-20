@@ -24,7 +24,7 @@ const safeUrl = (value) => {
     return url.protocol==='https:' ? url.href : '';
   } catch { return ''; }
 };
-const normalizeText = (value='') => value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9%]+/g,' ').replace(/([a-z])(?=\d)|(?<=\d)([a-z])/g,'$1 $2').replace(/\s+/g,' ').trim();
+const normalizeText = (value='') => value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9%]+/g,' ').trim();
 const STRUCTURAL_WORDS = new Set(['mg','mcg','ug','g','ml','comprimido','comprimidos','tableta','tabletas','capsula','capsulas','sobre','sobres','ampolla','ampollas','unidad','unidades','dosis','parche','parches','ovulo','ovulos','oral','recubierto','recubiertos']);
 const signature = (value) => {
   const text=value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
@@ -34,7 +34,7 @@ const signature = (value) => {
 };
 const strictProductMatch = (query, product) => {
   const requested=signature(query); const offered=signature(`${product.name} ${product.active_ingredient||''}`);
-  const requestedTerms=normalizeText(query).split(' ').filter(term=>term.length>1&&!STRUCTURAL_WORDS.has(term));
+  const requestedTerms=normalizeText(query).split(' ').filter(term=>term.length>1&&!/^\d/.test(term)&&!STRUCTURAL_WORDS.has(term));
   const offeredTerms=new Set(normalizeText(`${product.name} ${product.brand||''} ${product.active_ingredient||''}`).split(' '));
   return requested.doses.every(value=>offered.doses.includes(value))
     && requested.packages.every(value=>offered.packages.includes(value))
@@ -209,6 +209,10 @@ const PRESENTATION_UNITS = {
   dosis:'dosis', ml:'mL', g:'gramos'
 };
 let treatmentSuggestions=[]; let treatmentTimer;
+const normalizePlannerText = (value='') => normalizeText(value)
+  .replace(/([a-z])(?=\d)|(?<=\d)([a-z])/g,'$1 $2')
+  .replace(/\s+/g,' ')
+  .trim();
 function inferPresentation(name) {
   const text=name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\bgr\b/g,'g');
   const solid=text.match(/\b(\d+(?:[.,]\d+)?)\s*(comprimidos?|tabletas?|capsulas?|sobres?|ampollas?|unidades?|parches?|ovulos?|dosis)\b/i);
@@ -243,20 +247,20 @@ function applyPresentation(productName) {
   return true;
 }
 async function suggestTreatmentProducts(query) {
-  const normalized=normalizeText(query);
+  const normalized=normalizePlannerText(query);
   if(normalized.length<3) return [];
   const queryTerms=normalized.split(' ').filter(term=>term.length>1&&!['de','del','la','el','con','sin','y'].includes(term));
   if(!queryTerms.length) return [];
   const products=await loadStaticCatalog();
   const unique=new Map();
   products.forEach(product=>{
-    const searchable=normalizeText(`${product.name} ${product.brand||''} ${product.active_ingredient||''}`);
+    const searchable=normalizePlannerText(`${product.name} ${product.brand||''} ${product.active_ingredient||''}`);
     const candidateTerms=searchable.split(' ').filter(Boolean);
     const matches=queryTerms.every(term=>/^\d/.test(term)?candidateTerms.includes(term):candidateTerms.some(candidate=>candidate.startsWith(term)));
     if(!matches) return;
-    const key=normalizeText(product.name);
+    const key=normalizePlannerText(product.name);
     const current=unique.get(key);
-    const nameTerms=normalizeText(product.name).split(' ');
+    const nameTerms=normalizePlannerText(product.name).split(' ');
     const nameMatches=queryTerms.filter(term=>nameTerms.some(candidate=>candidate.startsWith(term))).length;
     const scored={...product,suggestion_score:nameMatches/queryTerms.length+(normalizeText(product.name).startsWith(queryTerms[0])?0.5:0)};
     if(!current||scored.suggestion_score>current.suggestion_score||(scored.suggestion_score===current.suggestion_score&&product.price<current.price)) unique.set(key,scored);
