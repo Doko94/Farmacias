@@ -36,6 +36,7 @@ def normalize(value: str) -> str:
         if unicodedata.category(char) != "Mn"
     )
     value = re.sub(r"[^a-z0-9]+", " ", value)
+    value = re.sub(r"(?<=[a-z])(?=\d)|(?<=\d)(?=[a-z])", " ", value)
     return " ".join(part for part in value.split() if part not in STOPWORDS)
 
 
@@ -61,7 +62,7 @@ def structured_match(query: str, candidate: str) -> bool:
         return False
     query_terms = {
         term for term in normalize(query).split()
-        if not term.isdigit() and term not in STRUCTURAL_TOKENS
+        if term not in STRUCTURAL_TOKENS
     }
     candidate_terms = set(normalize(candidate).split())
     if query_terms and not query_terms.issubset(candidate_terms):
