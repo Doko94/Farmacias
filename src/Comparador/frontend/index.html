@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Compara precios de medicamentos y optimiza el costo de tu tratamiento.">
+  <title>FarmaAhorro · Compara, planifica y ahorra</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="nav-wrap">
+    <nav class="nav container" aria-label="Navegación principal">
+      <a class="brand" href="#inicio"><span class="brand-mark">+</span><span>FarmaAhorro</span></a>
+      <button class="menu-btn" aria-label="Abrir menú" aria-expanded="false">☰</button>
+      <div class="nav-links">
+        <a href="#comparar">Comparar</a><a href="#receta">Mi receta</a>
+        <a href="#tratamiento">Tratamientos</a><a href="#alertas">Alertas</a>
+        <a class="nav-cta" href="#api">API</a>
+      </div>
+    </nav>
+  </header>
+
+  <main id="inicio">
+    <section class="hero">
+      <div class="hero-glow hero-glow-one"></div><div class="hero-glow hero-glow-two"></div>
+      <div class="container hero-grid">
+        <div class="hero-copy">
+          <span class="eyebrow"><i></i> Precios públicos de farmacias chilenas</span>
+          <h1>Tu tratamiento al <span>precio más inteligente.</span></h1>
+          <p>Compara medicamentos, calcula tu gasto mensual y optimiza una receta completa entre distintas farmacias.</p>
+          <form id="search-form" class="search-box">
+            <span aria-hidden="true">⌕</span>
+            <input id="search-input" required minlength="2" placeholder="Ej: paracetamol 500 mg" autocomplete="off">
+            <button type="submit">Comparar precios</button>
+          </form>
+          <div class="location-row">
+            <label>Ubicación
+              <select id="location-select">
+                <option value="Tarapaca|Iquique">Iquique, Tarapacá</option>
+                <option value="Arica y Parinacota|Arica">Arica, Arica y Parinacota</option>
+                <option value="Antofagasta|Antofagasta">Antofagasta, Antofagasta</option>
+              </select>
+            </label>
+            <span>Información gratuita y sin registro</span>
+          </div>
+        </div>
+        <aside class="hero-card">
+          <div class="pulse-icon">↘</div>
+          <p class="small-label">Ahorro estimado</p><strong>$18.640</strong>
+          <p>al optimizar una receta de ejemplo</p>
+          <div class="mini-chart"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="hero-stat"><span>4 farmacias comparadas</span><b>−32%</b></div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="trust-strip"><div class="container trust-grid">
+      <div><b>4</b><span>farmacias integradas</span></div><div><b>3</b><span>comunas iniciales</span></div>
+      <div><b>100%</b><span>comparación informativa</span></div><div><b>24/7</b><span>consulta disponible</span></div>
+    </div></section>
+
+    <section id="comparar" class="section container">
+      <div class="section-heading"><div><span class="kicker">COMPARADOR</span><h2>Resultados claros, decisiones simples</h2></div><p>Ordenamos alternativas por precio y disponibilidad. Confirma siempre concentración, formato y valor final.</p></div>
+      <div id="search-status" class="empty-state"><div class="empty-icon">⌕</div><h3>Busca tu primer medicamento</h3><p>Escribe un nombre, marca o principio activo arriba.</p></div>
+      <div id="results" class="results-grid" aria-live="polite"></div>
+    </section>
+
+    <section id="receta" class="section soft-section">
+      <div class="container split-grid">
+        <div><span class="kicker">RECETA INTELIGENTE</span><h2>Sube tu receta y encuentra la combinación más económica</h2><p>Extraemos el texto de un PDF o foto para que revises los medicamentos antes de cotizarlos. Nunca modificamos la indicación médica.</p>
+          <ul class="check-list"><li>Lectura de PDF y fotografía</li><li>Revisión manual antes de comparar</li><li>Optimización con costo de despacho</li></ul>
+        </div>
+        <div class="tool-card">
+          <label id="drop-zone" class="drop-zone"><input id="recipe-file" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp"><span class="upload-icon">⇧</span><b>Arrastra tu receta o selecciónala</b><small>PDF, JPG, PNG o WEBP · máximo 10 MB</small></label>
+          <div id="recipe-output" class="tool-output"></div>
+          <button id="demo-optimize" class="button full">Probar optimización de ejemplo</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="tratamiento" class="section container">
+      <div class="section-heading"><div><span class="kicker">PLANIFICADOR</span><h2>Calcula el costo mensual de tu tratamiento</h2></div><p>Indica dosis y contenido del envase. Calculamos cuántos envases necesitas para el período.</p></div>
+      <div class="calculator-grid">
+        <form id="treatment-form" class="tool-card form-grid">
+          <label>Medicamento<input id="treatment-query" required value="Paracetamol 500 mg"></label>
+          <label>Unidades por dosis<input id="units-dose" type="number" min="0.1" step="0.1" value="1"></label>
+          <label>Dosis al día<input id="doses-day" type="number" min="0.1" step="0.1" value="2"></label>
+          <label>Unidades por envase<input id="units-pack" type="number" min="1" value="20"></label>
+          <label>Días<input id="treatment-days" type="number" min="1" max="366" value="30"></label>
+          <button class="button" type="submit">Calcular tratamiento</button>
+        </form>
+        <div id="treatment-result" class="metric-card"><span>Costo mensual estimado</span><strong>—</strong><p>Completa los datos para comenzar.</p></div>
+      </div>
+    </section>
+
+    <section id="alertas" class="section dark-section"><div class="container split-grid">
+      <div><span class="kicker light">ALERTAS DE PRECIO</span><h2>Que el precio baje antes que se te acabe.</h2><p>Crea una alerta para un medicamento y registra el precio objetivo que estás esperando.</p></div>
+      <form id="alert-form" class="alert-form">
+        <input id="alert-query" required placeholder="Medicamento"><input id="alert-price" type="number" min="1" placeholder="Precio objetivo">
+        <input id="alert-email" type="email" required placeholder="tu@email.cl"><button class="button accent" type="submit">Crear alerta</button>
+        <div id="alert-message" class="form-message"></div>
+      </form>
+    </div></section>
+
+    <section class="section container features">
+      <div class="section-heading"><div><span class="kicker">MÁS HERRAMIENTAS</span><h2>Una plataforma para entender tus gastos de salud</h2></div></div>
+      <div class="feature-grid">
+        <article><span>↗</span><h3>Historial de precios</h3><p>Observa tendencias y distingue ofertas reales.</p></article>
+        <article><span>≋</span><h3>Bioequivalentes</h3><p>Compara alternativas certificadas y ahorro potencial.</p></article>
+        <article><span>⌁</span><h3>Analítica avanzada</h3><p>Dashboards de gasto, cobertura y variación de precios.</p></article>
+        <article id="api"><span>{ }</span><h3>API para terceros</h3><p>Integra búsqueda y optimización en otras aplicaciones.</p></article>
+      </div>
+    </section>
+  </main>
+
+  <footer><div class="container footer-grid"><div><a class="brand" href="#inicio"><span class="brand-mark">+</span><span>FarmaAhorro</span></a><p>Comparador informativo. No vendemos medicamentos ni reemplazamos la orientación médica o farmacéutica.</p></div><div><b>Plataforma</b><a href="#comparar">Comparador</a><a href="#receta">Recetas</a><a href="#alertas">Alertas</a></div><div><b>Importante</b><p>Verifica receta, concentración, stock y precio final en la farmacia antes de comprar.</p></div></div></footer>
+  <script src="app.js" defer></script>
+</body>
+</html>
