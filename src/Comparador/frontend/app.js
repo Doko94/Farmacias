@@ -43,12 +43,15 @@ const strictProductMatch = (query, product) => {
 
 const staticCatalogCache = new Map();
 let staticManifestPromise;
-async function loadStaticCatalog() {
+function loadStaticManifest() {
   staticManifestPromise ||= fetch('./data/manifest.json').then(response=>{
     if(!response.ok) throw new Error('Catalogo estatico no disponible');
     return response.json();
   });
-  const manifest=await staticManifestPromise;
+  return staticManifestPromise;
+}
+async function loadStaticCatalog() {
+  const manifest=await loadStaticManifest();
   const {region,commune}=locationValue();
   const entry=manifest.locations[`${region}|${commune}`];
   if(!entry) return [];
@@ -78,6 +81,74 @@ async function searchStaticCatalog(query) {
     .slice(0,60).map(item=>item.product);
 }
 
+function renderHeroBars(items) {
+  const chart=$('#hero-chart');
+  chart.innerHTML='';
+  const values=items.map(item=>item.value);
+  const minimum=Math.min(...values); const maximum=Math.max(...values);
+  items.forEach(item=>{
+    const bar=document.createElement('i');
+    const ratio=maximum===minimum?0.72:(item.value-minimum)/(maximum-minimum);
+    bar.style.setProperty('--h',`${42+ratio*54}%`);
+    bar.title=`${item.label}: ${money(item.value)}`;
+    chart.appendChild(bar);
+  });
+}
+
+async function updateHeroCoverage() {
+  try {
+    const manifest=await loadStaticManifest();
+    const {region,commune}=locationValue();
+    const entry=manifest.locations[`${region}|${commune}`];
+    if(!entry) throw new Error('Ubicacion sin catalogo');
+    $('#hero-metric-label').textContent=`Ofertas disponibles en ${commune}`;
+    $('#hero-metric-value').textContent=new Intl.NumberFormat('es-CL').format(entry.offers);
+    $('#hero-metric-context').textContent='productos y precios obtenidos del último scraping';
+    $('#hero-metric-detail').textContent=`${entry.pharmacies} farmacias integradas`;
+    $('#hero-metric-percent').textContent='Catálogo real';
+    $('#hero-metric-date').textContent=`Última captura: ${formatDate(entry.updated_at)}`;
+    renderHeroBars(Array.from({length:entry.pharmacies},(_,index)=>({label:`Farmacia ${index+1}`,value:index+1})));
+  } catch {
+    $('#hero-metric-label').textContent='Cobertura del catálogo';
+    $('#hero-metric-value').textContent='4 farmacias';
+    $('#hero-metric-context').textContent='Selecciona una ubicación y busca un medicamento';
+    $('#hero-metric-detail').textContent='Datos pendientes de cargar';
+    $('#hero-metric-percent').textContent='—';
+    $('#hero-metric-date').textContent='';
+  }
+}
+
+function updateHeroSearch(products, query) {
+  const bestByPharmacy=new Map();
+  products.filter(product=>product.available!==false&&Number(product.price)>0).forEach(product=>{
+    const previous=bestByPharmacy.get(product.pharmacy);
+    if(!previous||product.price<previous.price) bestByPharmacy.set(product.pharmacy,product);
+  });
+  const comparable=[...bestByPharmacy.values()];
+  if(!comparable.length) {
+    $('#hero-metric-label').textContent='Sin ofertas comparables';
+    $('#hero-metric-value').textContent='$0';
+    $('#hero-metric-context').textContent=`No encontramos stock disponible para “${query}”`;
+    $('#hero-metric-detail').textContent='0 farmacias comparadas';
+    $('#hero-metric-percent').textContent='—';
+    $('#hero-chart').innerHTML='';
+    $('#hero-metric-date').textContent='';
+    return;
+  }
+  const prices=comparable.map(product=>product.price);
+  const lowest=Math.min(...prices); const highest=Math.max(...prices);
+  const savings=highest-lowest;
+  const percentage=highest>0?Math.round(savings*100/highest):0;
+  const latest=comparable.map(product=>product.captured_at).filter(Boolean).sort().at(-1);
+  $('#hero-metric-label').textContent=comparable.length>1?'Ahorro potencial':'Una sola farmacia disponible';
+  $('#hero-metric-value').textContent=money(savings);
+  $('#hero-metric-context').textContent=`comparando las ofertas que coinciden con “${query}”`;
+  $('#hero-metric-detail').textContent=`${comparable.length} farmacia${comparable.length===1?'':'s'} comparada${comparable.length===1?'':'s'}`;
+  $('#hero-metric-percent').textContent=comparable.length>1?`−${percentage}%`:'Sin comparación';
+  $('#hero-metric-date').textContent=latest?`Última captura: ${formatDate(latest)}`:'';
+  renderHeroBars(comparable.sort((a,b)=>a.price-b.price).map(product=>({label:product.pharmacy,value:product.price})));
+}
+
 async function api(path, options={}) {
   if (!API_BASE) throw new Error('API no configurada');
   const response = await fetch(`${API_BASE}${path}`, options);
@@ -86,6 +157,7 @@ async function api(path, options={}) {
 }
 
 function renderResults(products, source='api') {
+  updateHeroSearch(products,$('#search-input').value.trim());
   $('#search-status').hidden = true;
   const container = $('#results'); container.innerHTML = '';
   document.querySelector('#demo-note')?.remove();
@@ -169,4 +241,8 @@ $('#region-select').addEventListener('change',()=>{
     option.value=commune; option.textContent=commune;
     communeSelect.appendChild(option);
   });
+  updateHeroCoverage();
 });
+
+$('#commune-select').addEventListener('change',updateHeroCoverage);
+updateHeroCoverage();

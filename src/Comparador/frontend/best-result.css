@@ -156,3 +156,10 @@
 .fonasa-price strong {
   font-size: 18px;
 }
+
+.hero-metric-date {
+  display: block;
+  margin-top: 12px;
+  color: #9fc1ba;
+  font-size: 10px;
+}

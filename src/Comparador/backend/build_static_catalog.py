@@ -76,6 +76,11 @@ def build() -> dict[str, int]:
         manifest["locations"][location_key] = {
             "file": filename,
             "offers": len(offers),
+            "pharmacies": len({item["pharmacy"] for item in offers}),
+            "updated_at": max(
+                (item["captured_at"] for item in offers if item["captured_at"]),
+                default="",
+            ),
         }
         manifest["total_offers"] += len(offers)
         counts[location_key] = len(offers)
