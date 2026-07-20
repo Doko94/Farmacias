@@ -188,14 +188,18 @@ class Product(BaseModel):
     image: Optional[str] = None
     price: Optional[int] = Field(None, description="Precio actual en CLP")
     price_old: Optional[int] = Field(None, description="Precio 'antes' en CLP, si hay oferta")
+    fonasa_price: Optional[int] = Field(None, description="Precio publicado para Fonasa")
     discount_pct: Optional[int] = None
+    bioequivalente: bool = False
+    disponible_comuna: bool = True
+    stock: Optional[int] = None
     # Contexto de la captura — clave para el historial de precios
     region: Optional[str] = None
     comuna: Optional[str] = None
     category_path: Optional[str] = None
     captured_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
-    @field_validator("price", "price_old", mode="before")
+    @field_validator("price", "price_old", "fonasa_price", "stock", mode="before")
     @classmethod
     def _clp_to_int(cls, v):
         """Normaliza '$41.590' o '41.590' a int 41590 (punto = miles en CL)."""
@@ -477,11 +481,12 @@ class AhumadaScraper:
             for child in value:
                 yield from AhumadaScraper._walk_json(child)
 
-    def parse_product_detail(self, html: str) -> dict[str, Optional[str | int]]:
-        """Extrae marca, precio vigente y precio normal desde una ficha PDP."""
+    def parse_product_detail(self, html: str) -> dict[str, object]:
+        """Extrae precios, bioequivalencia y disponibilidad desde una ficha PDP."""
         tree = HTMLParser(html)
         brand: Optional[str] = None
         structured_price: Optional[int] = None
+        available = True
 
         # JSON-LD suele ser la fuente mas estable para marca y oferta vigente.
         for script in tree.css('script[type="application/ld+json"]'):
@@ -509,6 +514,9 @@ class AhumadaScraper:
                     structured_price = self._clp_int(
                         offers.get("price") or offers.get("lowPrice")
                     )
+                    availability = str(offers.get("availability") or "").casefold()
+                    if availability:
+                        available = "instock" in availability
                 break
 
         # Respaldo para la marca cuando no viene en JSON-LD.
@@ -542,17 +550,51 @@ class AhumadaScraper:
                 if amount and amount not in visible_prices:
                     visible_prices.append(amount)
 
-        if len(visible_prices) >= 2:
-            price = min(visible_prices)
-            price_old = max(visible_prices)
-        elif visible_prices:
-            price = visible_prices[0]
+        page_text = tree.body.text(separator=" ", strip=True) if tree.body else tree.text()
+        fonasa_candidates: list[int] = []
+        fonasa_badge = (
+            tree.css_first('.product-detail img[src*="badge_fonasa"]')
+            or tree.css_first('img[src*="badge_fonasa"]')
+        )
+        if fonasa_badge and fonasa_badge.parent:
+            for raw_amount in re.findall(
+                r"\$\s*([\d.]+)", fonasa_badge.parent.text(separator=" ")
+            ):
+                amount = self._clp_int(raw_amount)
+                if amount and amount not in fonasa_candidates:
+                    fonasa_candidates.append(amount)
+        for pattern in (
+            r"\$\s*([\d.]+)[^$]{0,80}?fonasa",
+            r"fonasa[^$]{0,80}?\$\s*([\d.]+)",
+        ):
+            for raw_amount in re.findall(pattern, page_text, flags=re.IGNORECASE):
+                amount = self._clp_int(raw_amount)
+                if amount and amount not in fonasa_candidates:
+                    fonasa_candidates.append(amount)
+        fonasa_price = min(fonasa_candidates) if fonasa_candidates else None
+        commercial_prices = [value for value in visible_prices if value != fonasa_price]
+
+        if len(commercial_prices) >= 2:
+            price = min(commercial_prices)
+            price_old = max(commercial_prices)
+        elif commercial_prices:
+            price = commercial_prices[0]
             price_old = None
         else:
             price = structured_price
             price_old = None
 
-        return {"brand": brand, "price": price, "price_old": price_old}
+        return {
+            "brand": brand,
+            "price": price,
+            "price_old": price_old,
+            "fonasa_price": fonasa_price,
+            "bioequivalente": bool(
+                tree.css_first(".product-detail .bioequivalent-badge")
+                or tree.css_first(".image-carrousel__primary-badges .bioequivalent-badge")
+            ),
+            "disponible_comuna": available,
+        }
 
     async def enrich_product(self, product: Product) -> Product:
         """Completa precio real, precio normal y marca desde la ficha PDP."""
@@ -566,6 +608,12 @@ class AhumadaScraper:
             product.price_old = (
                 int(detail["price_old"]) if detail["price_old"] is not None else None
             )
+            product.fonasa_price = (
+                int(detail["fonasa_price"])
+                if detail["fonasa_price"] is not None else None
+            )
+            product.bioequivalente = bool(detail["bioequivalente"])
+            product.disponible_comuna = bool(detail["disponible_comuna"])
         except (httpx.HTTPError, ValueError) as exc:
             print(f"[WARN] No se pudo enriquecer PID {product.pid}: {exc!r}")
         return product

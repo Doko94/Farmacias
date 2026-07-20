@@ -19,6 +19,7 @@ class ProductOffer:
     category: str = ""
     active_ingredient: str = ""
     bioequivalent: bool = False
+    fonasa_price: int | None = None
     available: bool = True
     stock_quantity: int | None = None
     captured_at: str = ""

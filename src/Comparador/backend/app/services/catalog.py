@@ -41,6 +41,18 @@ def _pick(row: dict[str, str], *names: str) -> str:
     return ""
 
 
+def _bioequivalent(row: dict[str, str]) -> bool:
+    explicit = _pick(row, "bioequivalente")
+    if explicit not in (None, ""):
+        return _boolean(explicit, False)
+    evidence = " ".join((
+        _pick(row, "name", "nombre"),
+        _pick(row, "brand", "marca"),
+        _pick(row, "image", "imagen"),
+    )).casefold()
+    return "bioequivalent" in evidence or "(b)" in evidence
+
+
 class Catalog:
     def __init__(self, sources: dict[str, Path] | None = None) -> None:
         self.sources = sources or CSV_SOURCES
@@ -73,10 +85,13 @@ class Catalog:
                         commune=_pick(row, "comuna"),
                         category=_pick(row, "category_path", "categoria_1"),
                         active_ingredient=_pick(row, "principio_activo"),
-                        bioequivalent=_boolean(_pick(row, "bioequivalente"), False),
+                        bioequivalent=_bioequivalent(row),
+                        fonasa_price=_integer(
+                            _pick(row, "fonasa_price", "precio_fonasa")
+                        ),
                         available=_available(available_field, True),
                         stock_quantity=_integer(
-                            _pick(row, "stock", "cantidad_stock_catalogo")
+                            _pick(row, "stock", "cantidad_stock_catalogo", "cantidad_stock")
                         ),
                         captured_at=_pick(row, "captured_at", "capturado_en"),
                     ))

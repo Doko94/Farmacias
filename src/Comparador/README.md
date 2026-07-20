@@ -11,6 +11,8 @@ scrapers de Ahumada, Cruz Verde, Salcobrand y Dr. Simi.
 - cálculo mensual de tratamientos;
 - optimización de recetas entre varias farmacias;
 - comparación de bioequivalentes;
+- precio Fonasa cuando la farmacia lo publica en la ficha;
+- stock exacto cuando la fuente informa unidades y disponibilidad en los demás casos;
 - extracción de recetas PDF/foto;
 - API FastAPI y dashboard web responsivo.
 
@@ -47,13 +49,18 @@ La URL predeterminada del backend es `http://localhost:8000`. Para cambiarla:
 localStorage.setItem('farma_api', 'https://tu-api.example.com')
 ```
 
-Sin backend, la página entra en modo demostración para poder revisar el diseño.
+Sin backend, la página consulta el catálogo JSON generado desde los cuatro CSV.
 
 ## Netlify
 
 Selecciona `src/Comparador` como directorio base. `netlify.toml` publica la
 carpeta `frontend`. Netlify aloja el frontend; despliega FastAPI en un servicio
 Python y configura su URL con `farma_api`.
+
+Los campos enriquecidos de Ahumada (Fonasa, bioequivalencia y disponibilidad)
+se incorporan al volver a ejecutar `src/Scraper/Ahumada/ahumada_scraper.py` y
+desplegar nuevamente el comparador. Nunca se estima un precio Fonasa ni una
+cantidad de stock cuando la farmacia no entrega ese dato.
 
 ## Seguridad y alcance
 

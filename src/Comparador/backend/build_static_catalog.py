@@ -55,6 +55,7 @@ def build() -> dict[str, int]:
             "url": offer.url,
             "image": offer.image,
             "bioequivalent": offer.bioequivalent,
+            "fonasa_price": offer.fonasa_price,
             "search_text": offer.normalized_name,
         }
 

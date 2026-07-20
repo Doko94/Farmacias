@@ -85,3 +85,69 @@
   font-size: 12px;
   font-weight: 700;
 }
+
+.pharmacy-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+}
+
+.pharmacy-title img {
+  width: 58px;
+  height: 34px;
+  object-fit: contain;
+  object-position: left center;
+}
+
+.pharmacy-title span {
+  line-height: 1.2;
+}
+
+.product-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.product-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 5px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.product-badge.bioequivalent {
+  background: #fff3b8;
+  color: #705700;
+}
+
+.product-badge.fonasa {
+  background: #e6f0ff;
+  color: #0756a5;
+}
+
+.fonasa-price {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 11px;
+  border: 1px solid #bdd8f5;
+  border-radius: 10px;
+  background: #f2f8ff;
+  color: #0756a5;
+}
+
+.fonasa-price span {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.fonasa-price strong {
+  font-size: 18px;
+}

@@ -56,6 +56,7 @@ CSV_FIELDS = (
     "precio_normal",
     "precio_internet",
     "precio_sbpay",
+    "precio_fonasa",
     "descuento_internet_pct",
     "url",
     "imagen",
@@ -64,6 +65,7 @@ CSV_FIELDS = (
     "categoria_3",
     "tipo_venta",
     "requiere_receta",
+    "bioequivalente",
     "retiro_tienda",
     "despacho_domicilio",
     "stock_global",
@@ -223,6 +225,11 @@ def product_rows(products: list[dict[str, Any]]) -> list[dict[str, Any]]:
         normal = money(hit.get("normal_price"))
         internet = money(hit.get("direct_discount")) or normal
         sbpay = money(hit.get("direct_discount_sbpay"))
+        fonasa = money(
+            hit.get("fonasa_price")
+            or hit.get("price_fonasa")
+            or hit.get("direct_discount_fonasa")
+        )
         discount = None
         if normal and internet is not None and internet < normal:
             discount = round((normal - internet) * 100 / normal)
@@ -241,6 +248,7 @@ def product_rows(products: list[dict[str, Any]]) -> list[dict[str, Any]]:
                     "precio_normal": normal,
                     "precio_internet": internet,
                     "precio_sbpay": sbpay,
+                    "precio_fonasa": fonasa,
                     "descuento_internet_pct": discount,
                     "url": product_url,
                     "imagen": hit.get("catalog_image_url")
@@ -251,6 +259,9 @@ def product_rows(products: list[dict[str, Any]]) -> list[dict[str, Any]]:
                     "categoria_3": first_path(hit, "lvl2"),
                     "tipo_venta": hit.get("sale_type") or "",
                     "requiere_receta": bool(hit.get("needs_recipe")),
+                    "bioequivalente": bool(hit.get("bioequivalent"))
+                    or "(b)" in str(hit.get("name") or "").casefold()
+                    or "bioequivalent" in str(hit.get("name") or "").casefold(),
                     "retiro_tienda": bool(hit.get("pickup_delivery")),
                     "despacho_domicilio": bool(hit.get("package_delivery")),
                     "stock_global": bool(hit.get("has_stock")),
