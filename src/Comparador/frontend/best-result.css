@@ -14,6 +14,12 @@
   background: linear-gradient(135deg, #f4fbfa 0%, #FFFFFF 48%, #e8f5f2 100%);
 }
 
+@media (min-width: 901px) {
+  .hero {
+    padding-top: 40px;
+  }
+}
+
 .mobile-turno-link {
   display: none;
 }
