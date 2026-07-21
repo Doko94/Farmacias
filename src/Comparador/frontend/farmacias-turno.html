@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Encuentra farmacias de turno en Chile con información oficial del Ministerio de Salud.">
+  <title>Farmacias de turno · FarmaAhorro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="turnos.css">
+</head>
+<body>
+  <header class="nav-wrap">
+    <nav class="nav container" aria-label="Navegación principal">
+      <a class="brand" href="index.html"><span class="brand-mark">+</span><span>FarmaAhorro</span></a>
+      <button class="menu-btn" aria-label="Abrir menú" aria-expanded="false">☰</button>
+      <div class="nav-links">
+        <a href="index.html#comparar">Comparar precios</a>
+        <a href="index.html#tratamiento">Planificador</a>
+        <a class="nav-cta active" href="farmacias-turno.html">Farmacias de turno</a>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    <section class="turno-hero">
+      <div class="container turno-heading">
+        <div><span class="eyebrow"><i></i> Información oficial de salud</span><h1>Farmacias de turno <span>cerca de ti.</span></h1></div>
+        <p>Consulta locales designados para atención fuera del horario habitual. Verifica el horario y llama antes de trasladarte.</p>
+      </div>
+    </section>
+
+    <section class="container turno-tools" aria-label="Filtros de farmacias">
+      <div class="turno-filters">
+        <label>Región<select id="turno-region"><option value="">Todas las regiones</option></select></label>
+        <label>Comuna<select id="turno-commune"><option value="">Todas las comunas</option></select></label>
+        <label>Buscar<input id="turno-search" type="search" placeholder="Nombre o dirección"></label>
+        <button id="use-location" class="button location-button" type="button">⌖ Usar mi ubicación</button>
+      </div>
+      <div class="turno-summary">
+        <div><strong id="turno-count">—</strong><span>farmacias encontradas</span></div>
+        <div><strong id="turno-date">—</strong><span>fecha de los turnos</span></div>
+        <p id="turno-source">Conectando con FARMANET del Ministerio de Salud…</p>
+      </div>
+    </section>
+
+    <section class="container turno-layout">
+      <div id="turno-map" aria-label="Mapa de farmacias de turno"></div>
+      <div class="turno-results-panel">
+        <div class="panel-heading"><h2>Farmacias en esta zona</h2><button id="fit-map" type="button">Ver todas en el mapa</button></div>
+        <div id="turno-status" class="turno-status">Cargando información oficial…</div>
+        <div id="turno-results" class="turno-results" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section class="container official-note">
+      <b>Antes de salir</b>
+      <p>Los turnos y horarios pueden cambiar por disposición de la autoridad sanitaria. Confirma telefónicamente con el local. En una emergencia médica llama al 131.</p>
+    </section>
+  </main>
+
+  <footer><div class="container footer-grid"><div><a class="brand" href="index.html"><span class="brand-mark">+</span><span>FarmaAhorro</span></a><p>Servicio informativo. Los datos de turnos pertenecen al Ministerio de Salud de Chile.</p></div><div><b>Enlaces</b><a href="index.html">Comparador</a><a href="https://www.minsal.cl/farmanet/" target="_blank" rel="noopener">FARMANET MINSAL</a></div><div><b>Importante</b><p>Una farmacia de turno no reemplaza un servicio de urgencia.</p></div></div></footer>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script src="turnos.js"></script>
+</body>
+</html>

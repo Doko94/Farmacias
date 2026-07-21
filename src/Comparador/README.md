@@ -15,6 +15,7 @@ scrapers de Ahumada, Cruz Verde, Salcobrand y Dr. Simi.
 - stock exacto cuando la fuente informa unidades y disponibilidad en los demás casos;
 - extracción de recetas PDF/foto;
 - API FastAPI y dashboard web responsivo.
+- mapa de farmacias de turno con información oficial de FARMANET/MINSAL;
 
 ## Ejecutar el backend
 
@@ -56,6 +57,10 @@ Sin backend, la página consulta el catálogo JSON generado desde los cuatro CSV
 Selecciona `src/Comparador` como directorio base. `netlify.toml` publica la
 carpeta `frontend`. Netlify aloja el frontend; despliega FastAPI en un servicio
 Python y configura su URL con `farma_api`.
+
+La ruta `farmacias-turno.html` consume `/.netlify/functions/farmacias-turno`.
+La función normaliza y almacena temporalmente la respuesta pública de FARMANET;
+el mapa se muestra con Leaflet y OpenStreetMap, sin una clave de Google Maps.
 
 Los campos enriquecidos de Ahumada (Fonasa, bioequivalencia y disponibilidad)
 se incorporan al volver a ejecutar `src/Scraper/Ahumada/ahumada_scraper.py` y

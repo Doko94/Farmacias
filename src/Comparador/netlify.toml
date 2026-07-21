@@ -1,13 +1,14 @@
 [build]
   command = "python backend/build_static_catalog.py"
   publish = "frontend"
+  functions = "netlify/functions"
 
 [[headers]]
   for = "/*"
   [headers.values]
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
-    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(self)"
 
 [[redirects]]
   from = "/*"
