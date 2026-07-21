@@ -105,6 +105,15 @@
   height: 42px;
 }
 
+.pharmacy-title--municipal {
+  min-height: 58px;
+}
+
+.pharmacy-title--municipal img {
+  width: 150px;
+  height: 56px;
+}
+
 .pharmacy-title span {
   line-height: 1.2;
 }

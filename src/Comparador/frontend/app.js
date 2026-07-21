@@ -175,8 +175,13 @@ function renderResults(products, source='api') {
     const destination=safeUrl(product.url);
     const action=destination?`<a href="${destination}" target="_blank" rel="noopener noreferrer">Ver en farmacia →</a>`:'<span class="unavailable-link">Enlace no informado por la farmacia</span>';
     const logo=PHARMACY_LOGOS[product.pharmacy];
-    const pharmacyClass=product.pharmacy==='Ahumada'?' pharmacy-title--ahumada':'';
-    const pharmacyName=product.pharmacy==='Ahumada'?'':`<span>${product.pharmacy}</span>`;
+    const pharmacyClass=product.pharmacy==='Ahumada'
+      ?' pharmacy-title--ahumada'
+      :product.pharmacy==='Farmacia Municipal Iquique'
+        ?' pharmacy-title--municipal'
+        :'';
+    const logoOnlyPharmacies=new Set(['Ahumada','Farmacia Municipal Iquique']);
+    const pharmacyName=logoOnlyPharmacies.has(product.pharmacy)?'':`<span>${product.pharmacy}</span>`;
     const pharmacyTitle=`<span class="pharmacy pharmacy-title${pharmacyClass}">${logo?`<img src="${logo}" alt="Logo ${product.pharmacy}" loading="lazy">`:''}${pharmacyName}</span>`;
     const pharmacyNotice=product.pharmacy==='Farmacia Municipal Iquique'?'<small class="municipal-notice">Beneficio para personas inscritas con domicilio acreditado en Iquique.</small>':'';
     const badges=`<div class="product-badges">${product.bioequivalent?'<span class="product-badge bioequivalent">B Bioequivalente</span>':''}${product.fonasa_price?'<span class="product-badge fonasa">Fonasa</span>':''}</div>`;
