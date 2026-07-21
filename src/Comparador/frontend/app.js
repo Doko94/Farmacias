@@ -364,6 +364,21 @@ function medicineCandidates(text) {
     .map(recipeSearchQuery).filter(line=>line.length>=3)
     .filter(line=>{const key=normalizeText(line);if(seen.has(key))return false;seen.add(key);return true}).slice(0,12);
 }
+const RECIPE_METADATA=/\b(nombre|apellido|edad|direccion|avenida|av|calle|clinica|centro|consulta|telefono|tel|fono|doctor|doctora|dra|dr|medico|general|especialidad|diagnostico|hipertension|otitis|diabetes|rut|firma|paciente|fecha|registro|correo|email)\b/i;
+async function catalogMedicineCandidates(values) {
+  const unique=[...new Set(values.map(recipeSearchQuery).map(value=>value.trim()).filter(value=>value.length>=3&&!RECIPE_METADATA.test(normalizeText(value))))];
+  const accepted=[];
+  for(const query of unique) {
+    try {
+      const matches=await searchStaticCatalog(query);
+      if(matches.length||/\b\d+(?:[.,]\d+)?\s*(?:mg|mcg|ug|g|ml|%)\b/i.test(query))accepted.push(query);
+    } catch {
+      // Si el catálogo está temporalmente inaccesible, mantenemos líneas con dosis para revisión manual.
+      if(/\b\d+(?:[.,]\d+)?\s*(?:mg|mcg|ug|g|ml|%)\b/i.test(query))accepted.push(query);
+    }
+  }
+  return accepted;
+}
 function showRecipeReview(text,queries,method) {
   recipeQueries=queries;
   const output=$('#recipe-output');
@@ -378,7 +393,8 @@ async function processRecipeFile(file) {
   const form=new FormData();form.append('file',file);
   try {
     const data=await api('/api/recipes/extract',{method:'POST',body:form});
-    showRecipeReview(data.text||'',data.medicines.map(item=>item.query),'Lectura realizada por el backend');
+    const medicines=await catalogMedicineCandidates(data.medicines.map(item=>item.query));
+    showRecipeReview(data.text||'',medicines,'Lectura realizada por el backend');
     return;
   } catch {}
   if(file.type==='application/pdf'||file.name.toLowerCase().endsWith('.pdf')) {
@@ -389,7 +405,8 @@ async function processRecipeFile(file) {
   try {
     const result=await Tesseract.recognize(file,'spa',{logger:message=>{if(message.status==='recognizing text'){const progress=Math.round((message.progress||0)*100);const label=output.querySelector('.ocr-progress span'),bar=output.querySelector('.ocr-progress i');if(label)label.textContent=`Reconociendo texto… ${progress}%`;if(bar)bar.style.setProperty('--progress',`${progress}%`)}}});
     const text=result.data?.text||'';
-    showRecipeReview(text,medicineCandidates(text),'Lectura local y privada en tu navegador');
+    const medicines=await catalogMedicineCandidates(medicineCandidates(text));
+    showRecipeReview(text,medicines,'Lectura local y privada en tu navegador');
   } catch(error) {output.innerHTML=`<div class="recipe-warning">No pudimos leer la fotografía automáticamente. Puedes conectar el backend o intentar con una imagen más nítida. ${recipeEscape(error.message||'')}</div>`;}
 }
 $('#recipe-file').addEventListener('change',event=>processRecipeFile(event.target.files[0]));
@@ -403,12 +420,13 @@ $('#demo-optimize').addEventListener('click', async ()=>{
   if(reviewed)recipeQueries=reviewed.value.split(/\r?\n/).map(value=>value.trim()).filter(Boolean);
   const output=$('#recipe-output');
   if(!recipeQueries.length){output.insertAdjacentHTML('beforeend','<div class="recipe-warning">Sube una receta y escribe o confirma al menos un medicamento antes de optimizar.</div>');return;}
-  const searchQueries=recipeQueries.map(recipeSearchQuery).filter(Boolean);
+  const searchQueries=await catalogMedicineCandidates(recipeQueries);
+  if(!searchQueries.length){output.insertAdjacentHTML('beforeend','<div class="recipe-warning">No encontramos medicamentos del catálogo en el texto revisado. Corrige el nombre o la concentración e inténtalo nuevamente.</div>');return;}
   const {region,commune}=locationValue(); const body={region,commune,pickup:true,minimum_split_savings:1000,items:searchQueries.map(query=>({query,quantity:1}))};
   try { const data=await api('/api/recipes/optimize',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); const r=data.recommendation; output.innerHTML=`<b>Compra optimizada: ${money(r.total)}</b><br>${r.lines.map(x=>`${x.product} en ${x.pharmacy}: ${money(x.subtotal)}`).join('<br>')}<br>Ahorro: ${money(data.savings)}`; }
   catch {
     const lines=[];
-    for(const originalQuery of recipeQueries){const query=recipeSearchQuery(originalQuery);const matches=await searchStaticCatalog(query);const offer=matches.filter(item=>item.available!==false).sort((a,b)=>a.price-b.price)[0];lines.push(offer?`${offer.name} en ${offer.pharmacy}: ${money(offer.price)}`:`Sin coincidencia confiable para “${originalQuery}”`)}
+    for(const query of searchQueries){const matches=await searchStaticCatalog(query);const offer=matches.filter(item=>item.available!==false).sort((a,b)=>a.price-b.price)[0];lines.push(offer?`${offer.name} en ${offer.pharmacy}: ${money(offer.price)}`:`Sin coincidencia disponible para “${query}”`)}
     output.innerHTML=`<b>Resultado para los medicamentos revisados</b><br>${lines.join('<br>')}<small class="recipe-result-note">Confirma presentación, dosis, receta, stock y precio final directamente con cada farmacia.</small>`;
   }
 });
