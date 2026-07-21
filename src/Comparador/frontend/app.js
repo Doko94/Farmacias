@@ -11,7 +11,7 @@ const PHARMACY_LOGOS = {
   'Cruz Verde': 'https://www.cruzverde.cl/assets/favicon/favicon-32x32.png',
   Salcobrand: 'https://static.salcobrand.cl/assets/logo-73fe73eb9cf65adf981684077f38a616190d7759b74439763a45b9b985fc36e5.svg',
   'Dr. Simi': 'https://farmaciasdeldrsimicl.vtexassets.com/assets/vtex.file-manager-graphql/images/35ac1c04-2540-45f1-9996-346729464da8___7af9fc3d4ed0be2760b1bddf801da897.png',
-  'Farmacia Municipal Iquique': 'https://www.municipioiquique.cl/img/logos/logo-municipalidad_iquique.png'
+  'Farmacia Municipal Iquique': 'https://prciquique.cl/wp-content/uploads/2021/09/iqq.png'
 };
 const locationValue = () => ({region:$('#region-select').value,commune:$('#commune-select').value});
 const formatDate = (value) => {
