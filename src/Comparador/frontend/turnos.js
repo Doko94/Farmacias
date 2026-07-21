@@ -19,7 +19,7 @@ const REGION_BOUNDS = {
   'Aysén':{south:-49.3,north:-43.5,west:-76,east:-71.5},
   'Magallanes':{south:-56,north:-48.5,west:-76,east:-66}
 };
-let pharmacies=[]; let filtered=[]; let userPosition=null; let userMarker=null; let markers=[]; let typeFilter='turno';
+let pharmacies=[]; let filtered=[]; let userPosition=null; let userMarker=null; let markers=[]; let typeFilter='turno'; let loadedMode='duty';
 
 const map=L.map('turno-map',{zoomControl:true}).setView([-33.45,-70.66],5);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
@@ -77,7 +77,8 @@ function createCard(item) {
   const header=document.createElement('div'); header.className='turno-card-header';
   const title=document.createElement('h3'); title.textContent=item.name;
   const badge=document.createElement('span'); badge.className=`turno-badge${opened===false?' closed':''}`;
-  if(isUrgency(item)){badge.classList.add('urgency');badge.textContent=opened===false?'Urgencia · por confirmar':'Urgencia 24 horas'}
+  if(loadedMode==='all')badge.textContent='Farmacia';
+  else if(isUrgency(item)){badge.classList.add('urgency');badge.textContent=opened===false?'Urgencia · por confirmar':'Urgencia 24 horas'}
   else badge.textContent=item.on_duty&&opened===true?'De turno · abierta':item.on_duty?'De turno':opened===true?'Abierta ahora':opened===false?'Fuera de horario':'Horario informado';
   header.append(title,badge); card.appendChild(header);
   const address=document.createElement('span'); address.className='turno-address'; address.textContent=`${item.address}${item.commune?`, ${item.commune}`:''}`; card.appendChild(address);
@@ -109,15 +110,16 @@ function render() {
   if(!filtered.length){$('#turno-status').hidden=false;$('#turno-status').textContent='No hay farmacias que coincidan con los filtros seleccionados.';}
   fitVisibleMarkers();
 }
-async function loadRegion(region='Tarapacá') {
+async function loadRegion(region='Tarapacá',mode=typeFilter==='todas'?'all':'duty') {
   const bounds=REGION_BOUNDS[region]||REGION_BOUNDS.Tarapacá;
-  const params=new URLSearchParams({...bounds,region});
+  const params=new URLSearchParams({...bounds,region,mode});
   $('#turno-status').hidden=false;
   $('#turno-status').textContent='Consultando farmacias de la región…';
   try {
     const response=await fetch(`${API_URL}?${params}`); const payload=await response.json();
     if(!response.ok) throw new Error(payload.error||'No fue posible consultar las farmacias');
     pharmacies=payload.pharmacies.map(item=>({...item,region:regionName(item)}));
+    loadedMode=mode;
     $('#turno-region').value=region;
     updateCommunes();
     if(region==='Tarapacá') {
@@ -137,7 +139,7 @@ setOptions($('#turno-region'),Object.keys(REGION_BOUNDS),'Selecciona una región
 $('#turno-region').value='Tarapacá';
 $('#turno-region').addEventListener('change',event=>loadRegion(event.target.value||'Tarapacá'));
 $('#turno-commune').addEventListener('change',render); $('#turno-search').addEventListener('input',render); $('#fit-map').addEventListener('click',fitVisibleMarkers);
-document.querySelectorAll('.turno-type-filter button').forEach(button=>button.addEventListener('click',()=>{typeFilter=button.dataset.type;document.querySelectorAll('.turno-type-filter button').forEach(item=>{const active=item===button;item.classList.toggle('active',active);item.setAttribute('aria-pressed',String(active))});render()}));
+document.querySelectorAll('.turno-type-filter button').forEach(button=>button.addEventListener('click',async()=>{typeFilter=button.dataset.type;document.querySelectorAll('.turno-type-filter button').forEach(item=>{const active=item===button;item.classList.toggle('active',active);item.setAttribute('aria-pressed',String(active))});const requiredMode=typeFilter==='todas'?'all':'duty';if(loadedMode!==requiredMode)await loadRegion($('#turno-region').value||'Tarapacá',requiredMode);else render()}));
 $('#use-location').addEventListener('click',()=>{
   if(!navigator.geolocation){$('#turno-status').hidden=false;$('#turno-status').textContent='Tu navegador no permite obtener la ubicación.';return;}
   const button=$('#use-location'); button.disabled=true; button.textContent='Obteniendo ubicación…';

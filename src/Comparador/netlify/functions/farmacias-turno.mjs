@@ -145,7 +145,9 @@ function normalizeBuscaFarmaRows(rows, endpoint, region) {
     local_telefono:item.telefono,
     local_lat:item.lat,
     local_lng:item.lng,
-    comuna_nombre:item.comuna
+    comuna_nombre:item.comuna,
+    tipo:'Farmacia autorizada',
+    turno:false
   },region)).filter(item=>item.name&&item.commune)};
 }
 
@@ -185,11 +187,23 @@ const inside=(item,bounds)=>item.latitude>=bounds.south&&item.latitude<=bounds.n
 
 export default async (request) => {
   const now = Date.now();
-  const url=new URL(request.url); const bounds=requestBounds(url); const region=text(url.searchParams.get('region'));
-  const cacheKey=`${region}|${Object.values(bounds).map(value=>value.toFixed(2)).join('|')}`;
+  const url=new URL(request.url); const bounds=requestBounds(url); const region=text(url.searchParams.get('region')); const mode=url.searchParams.get('mode')==='all'?'all':'duty';
+  const cacheKey=`${mode}|${region}|${Object.values(bounds).map(value=>value.toFixed(2)).join('|')}`;
   const cached=memoryCache.get(cacheKey);
   if (cached && now - cached.timestamp < CACHE_MS) {
     return Response.json(cached.body, {headers:{'Cache-Control':'public, max-age=300, s-maxage=1800'}});
+  }
+  if(mode==='all') {
+    try {
+      let result; let source;
+      try { result=await fetchBuscaFarma(bounds,region); source='Directorio general de farmacias · información pública consolidada'; }
+      catch { result=await fetchBuscaFarmaViaReader(bounds,region); source='Directorio general de farmacias · servicio de respaldo'; }
+      const body={source,source_url:result.endpoint,fetched_at:new Date().toISOString(),indirect:true,directory:true,pharmacies:result.pharmacies};
+      memoryCache.set(cacheKey,{timestamp:now,body}); return Response.json(body,{headers:{'Cache-Control':'public, max-age=300, s-maxage=1800, stale-while-revalidate=86400'}});
+    } catch(error) {
+      if(cached)return Response.json({...cached.body,stale:true},{headers:{'Cache-Control':'no-cache'}});
+      return Response.json({error:'El directorio general de farmacias no está disponible temporalmente.'},{status:503,headers:{'Cache-Control':'no-store'}});
+    }
   }
   try {
     let result; let source; let indirect=false;
