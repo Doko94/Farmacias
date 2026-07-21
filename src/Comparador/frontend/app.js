@@ -370,4 +370,18 @@ $('#region-select').addEventListener('change',()=>{
 });
 
 $('#commune-select').addEventListener('change',updateHeroCoverage);
+
+const mobileMetricQuery=window.matchMedia('(max-width: 600px)');
+function placeCatalogMetricCard(event=mobileMetricQuery) {
+  const card=$('#catalog-metric-card');
+  const origin=$('#hero-card-origin');
+  const mobileSlot=$('#mobile-metric-slot');
+  if(event.matches) {
+    if(card.parentElement!==mobileSlot) mobileSlot.appendChild(card);
+  } else if(card.previousElementSibling!==origin) {
+    origin.parentElement.insertBefore(card,origin.nextSibling);
+  }
+}
+mobileMetricQuery.addEventListener?.('change',placeCatalogMetricCard);
+placeCatalogMetricCard();
 updateHeroCoverage();

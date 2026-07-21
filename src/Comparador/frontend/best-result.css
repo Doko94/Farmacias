@@ -206,3 +206,21 @@
 .clear-results-button[hidden] {
   display: none;
 }
+
+.mobile-metric-slot {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  .mobile-metric-slot {
+    display: block;
+    margin-top: 30px;
+  }
+
+  .mobile-metric-slot .hero-card {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    transform: none;
+  }
+}

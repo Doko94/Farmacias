@@ -53,7 +53,8 @@
             <span>Información gratuita y sin registro</span>
           </div>
         </div>
-        <aside class="hero-card">
+        <span id="hero-card-origin" hidden></span>
+        <aside id="catalog-metric-card" class="hero-card">
           <div class="pulse-icon">↘</div>
           <p id="hero-metric-label" class="small-label">Cargando cobertura</p>
           <strong id="hero-metric-value">—</strong>
@@ -74,6 +75,7 @@
       <div class="section-heading"><div><span class="kicker">COMPARADOR</span><h2>Resultados claros, decisiones simples</h2></div><div class="results-heading-actions"><p>Ordenamos alternativas por precio y disponibilidad. Confirma siempre concentración, formato y valor final.</p><button id="clear-results" class="clear-results-button" type="button" hidden>Limpiar resultados</button></div></div>
       <div id="search-status" class="empty-state"><div class="empty-icon">⌕</div><h3>Busca tu primer medicamento</h3><p>Escribe un nombre, marca o principio activo arriba.</p></div>
       <div id="results" class="results-grid" aria-live="polite"></div>
+      <div id="mobile-metric-slot" class="mobile-metric-slot" aria-live="polite"></div>
     </section>
 
     <section id="receta" class="section soft-section">
