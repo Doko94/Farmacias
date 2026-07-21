@@ -1,6 +1,24 @@
 const $ = (selector) => document.querySelector(selector);
 const API_URL = '/.netlify/functions/farmacias-turno';
 const REGION_NAMES = {1:'Tarapacá',2:'Antofagasta',3:'Atacama',4:'Coquimbo',5:'Valparaíso',6:"O'Higgins",7:'Maule',8:'Biobío',9:'La Araucanía',10:'Los Lagos',11:'Aysén',12:'Magallanes',13:'Metropolitana',14:'Los Ríos',15:'Arica y Parinacota',16:'Ñuble'};
+const REGION_BOUNDS = {
+  'Arica y Parinacota':{south:-19.3,north:-17.4,west:-70.7,east:-68.8},
+  'Tarapacá':{south:-21.7,north:-18.8,west:-71.2,east:-68.3},
+  'Antofagasta':{south:-26.2,north:-20.8,west:-71.3,east:-67.8},
+  'Atacama':{south:-29.6,north:-25.2,west:-72,east:-68},
+  'Coquimbo':{south:-32.3,north:-29,west:-72,east:-69.6},
+  'Valparaíso':{south:-34.2,north:-31,west:-72.5,east:-69.9},
+  'Metropolitana':{south:-34.4,north:-32.8,west:-71.8,east:-69.8},
+  "O'Higgins":{south:-35.1,north:-33.7,west:-72.1,east:-69.8},
+  'Maule':{south:-36.6,north:-34.7,west:-72.8,east:-70.2},
+  'Ñuble':{south:-37.3,north:-36,west:-72.9,east:-71},
+  'Biobío':{south:-38.5,north:-36.7,west:-74,east:-70.8},
+  'La Araucanía':{south:-39.7,north:-37.5,west:-73.8,east:-70.8},
+  'Los Ríos':{south:-40.8,north:-39.2,west:-74,east:-71.4},
+  'Los Lagos':{south:-44.1,north:-40.2,west:-75,east:-71.3},
+  'Aysén':{south:-49.3,north:-43.5,west:-76,east:-71.5},
+  'Magallanes':{south:-56,north:-48.5,west:-76,east:-66}
+};
 let pharmacies=[]; let filtered=[]; let userPosition=null; let userMarker=null; let markers=[];
 
 const map=L.map('turno-map',{zoomControl:true}).setView([-33.45,-70.66],5);
@@ -15,6 +33,7 @@ const validCoordinates=(item)=>Number.isFinite(item.latitude)&&Number.isFinite(i
 const timeText=(value)=>value?value.slice(0,5):'No informado';
 const toMinutes=(value)=>{const [hour,minute]=String(value||'').split(':').map(Number);return Number.isFinite(hour)&&Number.isFinite(minute)?hour*60+minute:null;};
 function isOpen(item) {
+  if(typeof item.open_now==='boolean') return item.open_now;
   const open=toMinutes(item.opens_at); const close=toMinutes(item.closes_at);
   if(open===null||close===null) return null;
   const parts=new Intl.DateTimeFormat('es-CL',{timeZone:'America/Santiago',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(new Date());
@@ -55,10 +74,12 @@ function createCard(item) {
   const opened=isOpen(item); const distance=userPosition&&validCoordinates(item)?distanceKm(userPosition,item):null;
   const header=document.createElement('div'); header.className='turno-card-header';
   const title=document.createElement('h3'); title.textContent=item.name;
-  const badge=document.createElement('span'); badge.className=`turno-badge${opened===false?' closed':''}`; badge.textContent=opened===true?'Abierta ahora':opened===false?'Fuera de horario':'De turno';
+  const badge=document.createElement('span'); badge.className=`turno-badge${opened===false?' closed':''}`;
+  badge.textContent=item.on_duty&&opened===true?'De turno · abierta':item.on_duty?'De turno':opened===true?'Abierta ahora':opened===false?'Fuera de horario':'Horario informado';
   header.append(title,badge); card.appendChild(header);
   const address=document.createElement('span'); address.className='turno-address'; address.textContent=`${item.address}${item.commune?`, ${item.commune}`:''}`; card.appendChild(address);
-  const hours=document.createElement('span'); hours.className='turno-hours'; hours.textContent=`Horario informado: ${timeText(item.opens_at)}–${timeText(item.closes_at)}${item.weekday?` · ${item.weekday}`:''}`; card.appendChild(hours);
+  const hours=document.createElement('span'); hours.className='turno-hours';
+  hours.textContent=`Horario informado: ${item.duty_schedule||item.schedule||`${timeText(item.opens_at)}–${timeText(item.closes_at)}`}${item.weekday?` · ${item.weekday}`:''}`; card.appendChild(hours);
   if(distance!==null){const line=document.createElement('span');line.className='turno-distance';line.textContent=`A ${distance<10?distance.toFixed(1):Math.round(distance)} km de tu ubicación`;card.appendChild(line);}
   const actions=document.createElement('div'); actions.className='turno-actions';
   if(item.phone){const call=document.createElement('a');call.href=`tel:${item.phone.replace(/[^+\d]/g,'')}`;call.textContent='Llamar';actions.appendChild(call);}
@@ -85,23 +106,33 @@ function render() {
   if(!filtered.length){$('#turno-status').hidden=false;$('#turno-status').textContent='No hay farmacias que coincidan con los filtros seleccionados.';}
   fitVisibleMarkers();
 }
-async function load() {
+async function loadRegion(region='Tarapacá') {
+  const bounds=REGION_BOUNDS[region]||REGION_BOUNDS.Tarapacá;
+  const params=new URLSearchParams({...bounds,region});
+  $('#turno-status').hidden=false;
+  $('#turno-status').textContent='Consultando farmacias de la región…';
   try {
-    const response=await fetch(API_URL); const payload=await response.json();
-    if(!response.ok) throw new Error(payload.error||'No fue posible consultar FARMANET');
+    const response=await fetch(`${API_URL}?${params}`); const payload=await response.json();
+    if(!response.ok) throw new Error(payload.error||'No fue posible consultar las farmacias');
     pharmacies=payload.pharmacies.map(item=>({...item,region:regionName(item)}));
-    setOptions($('#turno-region'),pharmacies.map(regionName),'Todas las regiones'); updateCommunes();
-    const iquique=pharmacies.some(item=>normalize(item.commune)==='iquique');
-    if(iquique){const item=pharmacies.find(item=>normalize(item.commune)==='iquique');$('#turno-region').value=regionName(item);updateCommunes();$('#turno-commune').value=item.commune;}
+    $('#turno-region').value=region;
+    updateCommunes();
+    if(region==='Tarapacá') {
+      const item=pharmacies.find(item=>normalize(item.commune)==='iquique');
+      if(item) $('#turno-commune').value=item.commune;
+    }
     const dates=pharmacies.map(item=>item.date).filter(Boolean).sort(); $('#turno-date').textContent=dates.at(-1)||'Hoy';
-    $('#turno-source').textContent=`Fuente: ${payload.source}${payload.stale?' · última copia disponible':''} · consultado ${new Intl.DateTimeFormat('es-CL',{dateStyle:'medium',timeStyle:'short'}).format(new Date(payload.fetched_at))}`;
+    $('#turno-source').textContent=`Fuente: ${payload.source}${payload.indirect?' · fuente de respaldo':''}${payload.stale?' · última copia disponible':''} · consultado ${new Intl.DateTimeFormat('es-CL',{dateStyle:'medium',timeStyle:'short'}).format(new Date(payload.fetched_at))}`;
     render();
   } catch(error) {
-    $('#turno-status').hidden=false; $('#turno-status').innerHTML='El servicio oficial no está disponible temporalmente. <a href="https://www.minsal.cl/farmanet/" target="_blank" rel="noopener">Consultar FARMANET</a>.';
-    $('#turno-source').textContent='No fue posible actualizar la información oficial.';
+    pharmacies=[]; clearMarkers(); $('#turno-count').textContent='0'; updateCommunes();
+    $('#turno-status').hidden=false; $('#turno-status').innerHTML='No fue posible actualizar la información en este momento. <a href="https://www.minsal.cl/farmanet/" target="_blank" rel="noopener">Consultar FARMANET</a>.';
+    $('#turno-source').textContent=error.message;
   }
 }
-$('#turno-region').addEventListener('change',()=>{updateCommunes();render();});
+setOptions($('#turno-region'),Object.keys(REGION_BOUNDS),'Selecciona una región');
+$('#turno-region').value='Tarapacá';
+$('#turno-region').addEventListener('change',event=>loadRegion(event.target.value||'Tarapacá'));
 $('#turno-commune').addEventListener('change',render); $('#turno-search').addEventListener('input',render); $('#fit-map').addEventListener('click',fitVisibleMarkers);
 $('#use-location').addEventListener('click',()=>{
   if(!navigator.geolocation){$('#turno-status').hidden=false;$('#turno-status').textContent='Tu navegador no permite obtener la ubicación.';return;}
@@ -114,4 +145,4 @@ $('#use-location').addEventListener('click',()=>{
   },()=>{button.disabled=false;button.textContent='⌖ Usar mi ubicación';$('#turno-status').hidden=false;$('#turno-status').textContent='No pudimos acceder a tu ubicación. Revisa el permiso del navegador.';},{enableHighAccuracy:true,timeout:10000,maximumAge:300000});
 });
 $('.menu-btn').addEventListener('click',()=>{const links=$('.nav-links');links.classList.toggle('open');$('.menu-btn').setAttribute('aria-expanded',links.classList.contains('open'));});
-load();
+loadRegion();
