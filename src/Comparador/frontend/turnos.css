@@ -41,3 +41,5 @@
   background: #C5E3DE;
   color: #064764;
 }
+.turno-type-filter{display:flex;justify-content:center;gap:8px;margin:14px 0 2px}.turno-type-filter button{display:flex;align-items:center;gap:8px;min-height:43px;padding:8px 17px;border:1px solid var(--line);border-radius:999px;background:#fff;color:#466b77;font-weight:800;cursor:pointer;transition:.2s}.turno-type-filter button span{display:grid;place-items:center;min-width:25px;height:25px;padding:0 4px;border-radius:8px;background:#e7f5f2;color:#13A797;font-size:10px}.turno-type-filter button:hover{border-color:#13A797;color:#064764}.turno-type-filter button.active{border-color:transparent;background:var(--brand-gradient);color:#fff;box-shadow:0 8px 20px rgba(19,167,151,.2)}.turno-type-filter button.active span{background:#fff;color:#064764}.turno-badge.urgency{background:#ffe8e8;color:#c7353a}
+@media(max-width:600px){.turno-type-filter{justify-content:flex-start;overflow-x:auto;padding:2px 0 8px}.turno-type-filter button{flex:0 0 auto;padding-inline:13px}}

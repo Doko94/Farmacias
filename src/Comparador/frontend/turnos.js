@@ -19,7 +19,7 @@ const REGION_BOUNDS = {
   'Aysén':{south:-49.3,north:-43.5,west:-76,east:-71.5},
   'Magallanes':{south:-56,north:-48.5,west:-76,east:-66}
 };
-let pharmacies=[]; let filtered=[]; let userPosition=null; let userMarker=null; let markers=[];
+let pharmacies=[]; let filtered=[]; let userPosition=null; let userMarker=null; let markers=[]; let typeFilter='turno';
 
 const map=L.map('turno-map',{zoomControl:true}).setView([-33.45,-70.66],5);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
@@ -47,8 +47,9 @@ function distanceKm(a,b) {
   const value=Math.sin(dLat/2)**2+Math.cos(rad(a.latitude))*Math.cos(rad(b.latitude))*Math.sin(dLng/2)**2;
   return earth*2*Math.atan2(Math.sqrt(value),Math.sqrt(1-value));
 }
-function markerIcon(open) {
-  const color=open===false?'#a94b4b':'#087f68';
+const isUrgency=(item)=>normalize(item.type).includes('urgencia');
+function markerIcon(open,item) {
+  const color=isUrgency(item)?'#e5484d':open===false?'#a94b4b':'#087f68';
   return L.divIcon({className:'',html:`<span style="display:grid;place-items:center;width:30px;height:30px;border:3px solid white;border-radius:50% 50% 50% 0;background:${color};color:white;font-weight:800;box-shadow:0 4px 14px #0004;transform:rotate(-45deg)"><i style="transform:rotate(45deg);font-style:normal">+</i></span>`,iconSize:[30,30],iconAnchor:[15,30]});
 }
 function setOptions(select,values,placeholder) {
@@ -76,7 +77,8 @@ function createCard(item) {
   const header=document.createElement('div'); header.className='turno-card-header';
   const title=document.createElement('h3'); title.textContent=item.name;
   const badge=document.createElement('span'); badge.className=`turno-badge${opened===false?' closed':''}`;
-  badge.textContent=item.on_duty&&opened===true?'De turno · abierta':item.on_duty?'De turno':opened===true?'Abierta ahora':opened===false?'Fuera de horario':'Horario informado';
+  if(isUrgency(item)){badge.classList.add('urgency');badge.textContent=opened===false?'Urgencia · por confirmar':'Urgencia 24 horas'}
+  else badge.textContent=item.on_duty&&opened===true?'De turno · abierta':item.on_duty?'De turno':opened===true?'Abierta ahora':opened===false?'Fuera de horario':'Horario informado';
   header.append(title,badge); card.appendChild(header);
   const address=document.createElement('span'); address.className='turno-address'; address.textContent=`${item.address}${item.commune?`, ${item.commune}`:''}`; card.appendChild(address);
   const hours=document.createElement('span'); hours.className='turno-hours';
@@ -92,14 +94,14 @@ function createCard(item) {
 }
 function render() {
   const region=$('#turno-region').value; const commune=$('#turno-commune').value; const search=normalize($('#turno-search').value);
-  filtered=pharmacies.filter(item=>(!region||regionName(item)===region)&&(!commune||item.commune===commune)&&(!search||normalize(`${item.name} ${item.address}`).includes(search)));
+  filtered=pharmacies.filter(item=>(typeFilter==='todas'||typeFilter==='urgencia'&&isUrgency(item)||typeFilter==='turno'&&!isUrgency(item))&&(!region||regionName(item)===region)&&(!commune||item.commune===commune)&&(!search||normalize(`${item.name} ${item.address}`).includes(search)));
   if(userPosition) filtered.sort((a,b)=>(validCoordinates(a)?distanceKm(userPosition,a):Infinity)-(validCoordinates(b)?distanceKm(userPosition,b):Infinity));
   $('#turno-count').textContent=new Intl.NumberFormat('es-CL').format(filtered.length);
   const container=$('#turno-results'); container.innerHTML=''; clearMarkers();
   filtered.forEach(item=>{
     container.appendChild(createCard(item));
     if(validCoordinates(item)) {
-      const marker=L.marker([item.latitude,item.longitude],{icon:markerIcon(isOpen(item))}).addTo(map);
+      const marker=L.marker([item.latitude,item.longitude],{icon:markerIcon(isOpen(item),item)}).addTo(map);
       marker.bindPopup(`<b>${item.name.replace(/[<>&]/g,'')}</b><br>${item.address.replace(/[<>&]/g,'')}<br>${scheduleText(item).replace(/[<>&]/g,'')}`); markers.push(marker);
     }
   });
@@ -135,6 +137,7 @@ setOptions($('#turno-region'),Object.keys(REGION_BOUNDS),'Selecciona una región
 $('#turno-region').value='Tarapacá';
 $('#turno-region').addEventListener('change',event=>loadRegion(event.target.value||'Tarapacá'));
 $('#turno-commune').addEventListener('change',render); $('#turno-search').addEventListener('input',render); $('#fit-map').addEventListener('click',fitVisibleMarkers);
+document.querySelectorAll('.turno-type-filter button').forEach(button=>button.addEventListener('click',()=>{typeFilter=button.dataset.type;document.querySelectorAll('.turno-type-filter button').forEach(item=>{const active=item===button;item.classList.toggle('active',active);item.setAttribute('aria-pressed',String(active))});render()}));
 $('#use-location').addEventListener('click',()=>{
   if(!navigator.geolocation){$('#turno-status').hidden=false;$('#turno-status').textContent='Tu navegador no permite obtener la ubicación.';return;}
   const button=$('#use-location'); button.disabled=true; button.textContent='Obteniendo ubicación…';
