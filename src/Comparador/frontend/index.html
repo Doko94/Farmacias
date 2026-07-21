@@ -18,8 +18,8 @@
       <a class="brand" href="#inicio" aria-label="AhorraMed"><img class="brand-logo" src="assets/Logo_imagen_texto.png" alt="AhorraMed"></a>
       <button class="menu-btn" aria-label="Abrir menú" aria-expanded="false">☰</button>
       <div class="nav-links">
-        <a href="#comparar">Comparar</a><a href="#receta">Mi receta</a>
-        <a href="#tratamiento">Tratamientos</a><a href="#alertas">Alertas</a>
+        <a href="#comparar">Comparar</a><a href="receta.html">Mi receta</a>
+        <a href="planificador.html">Tratamientos</a><a href="#alertas">Alertas</a>
         <a class="nav-cta" href="farmacias-turno.html">Farmacias de turno</a>
         <a href="#api">API</a>
       </div>
@@ -81,7 +81,7 @@
       <div id="mobile-metric-slot" class="mobile-metric-slot" aria-live="polite"></div>
     </section>
 
-    <section id="receta" class="section soft-section">
+    <section id="receta" class="section soft-section" hidden>
       <div class="container split-grid">
         <div><span class="kicker">RECETA INTELIGENTE</span><h2>Sube tu receta y encuentra la combinación más económica</h2><p>Extraemos el texto de un PDF o foto para que revises los medicamentos antes de cotizarlos. Nunca modificamos la indicación médica.</p>
           <ul class="check-list"><li>Lectura de PDF y fotografía</li><li>Revisión manual antes de comparar</li><li>Optimización con costo de despacho</li></ul>
@@ -94,7 +94,7 @@
       </div>
     </section>
 
-    <section id="tratamiento" class="section container">
+    <section id="tratamiento" class="section container" hidden>
       <div class="section-heading"><div><span class="kicker">PLANIFICADOR</span><h2>Calcula el costo mensual de tu tratamiento</h2></div><p>Selecciona una presentación del catálogo. Detectamos automáticamente el contenido del envase y puedes corregirlo si es necesario.</p></div>
       <div class="calculator-grid">
         <form id="treatment-form" class="tool-card form-grid">
@@ -122,8 +122,8 @@
       <div class="section-heading"><div><span class="kicker">MÁS HERRAMIENTAS</span><h2>Una plataforma para entender tus gastos de salud</h2></div></div>
       <div class="feature-grid">
         <a class="feature-card-link" href="carrito.html"><article><span>🛒</span><h3>Carrito comparador</h3><p>Agrega varios productos y encuentra la farmacia más conveniente.</p><b>Armar mi carrito →</b></article></a>
-        <a class="feature-card-link" href="#receta"><article><span>▤</span><h3>Receta inteligente</h3><p>Sube una receta, revisa los medicamentos detectados y encuentra la compra más conveniente.</p><b>Analizar mi receta →</b></article></a>
-        <a class="feature-card-link" href="#tratamiento"><article><span>◷</span><h3>Planificador de tratamiento</h3><p>Calcula cuántos envases necesitas y estima el costo de tu tratamiento.</p><b>Planificar tratamiento →</b></article></a>
+        <a class="feature-card-link" href="receta.html"><article><span>▤</span><h3>Receta inteligente</h3><p>Sube una receta, revisa los medicamentos detectados y encuentra la compra más conveniente.</p><b>Analizar mi receta →</b></article></a>
+        <a class="feature-card-link" href="planificador.html"><article><span>◷</span><h3>Planificador de tratamiento</h3><p>Calcula cuántos envases necesitas y estima el costo de tu tratamiento.</p><b>Planificar tratamiento →</b></article></a>
         <a class="feature-card-link" href="historial.html"><article><span>↗</span><h3>Historial de precios</h3><p>Observa tendencias y distingue ofertas reales.</p><b>Ver historial →</b></article></a>
         <a class="feature-card-link" href="bioequivalentes.html"><article><span>≋</span><h3>Bioequivalentes</h3><p>Compara alternativas informadas y ahorro potencial.</p><b>Comparar alternativas →</b></article></a>
         <a class="feature-card-link" href="dashboard.html"><article><span>⌁</span><h3>Analítica avanzada</h3><p>Dashboard de precios, ahorro, cobertura y stock.</p><b>Ver dashboard →</b></article></a>
@@ -132,8 +132,7 @@
     </section>
   </main>
 
-  <footer><div class="container footer-grid"><div><a class="brand" href="#inicio" aria-label="AhorraMed"><img class="brand-logo" src="assets/Logo_imagen_texto.png" alt="AhorraMed"></a><p>Comparador informativo. No vendemos medicamentos ni reemplazamos la orientación médica o farmacéutica.</p></div><div><b>Plataforma</b><a href="#comparar">Comparador</a><a href="#receta">Recetas</a><a href="#alertas">Alertas</a></div><div><b>Importante</b><p>Verifica receta, concentración, stock y precio final en la farmacia antes de comprar.</p></div></div></footer>
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <footer><div class="container footer-grid"><div><a class="brand" href="#inicio" aria-label="AhorraMed"><img class="brand-logo" src="assets/Logo_imagen_texto.png" alt="AhorraMed"></a><p>Comparador informativo. No vendemos medicamentos ni reemplazamos la orientación médica o farmacéutica.</p></div><div><b>Plataforma</b><a href="#comparar">Comparador</a><a href="receta.html">Recetas</a><a href="#alertas">Alertas</a></div><div><b>Importante</b><p>Verifica receta, concentración, stock y precio final en la farmacia antes de comprar.</p></div></div></footer>
   <script src="app.js" defer></script>
 </body>
 </html>
