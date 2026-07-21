@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import sys
 import unicodedata
 from pathlib import Path
@@ -17,6 +18,8 @@ from app.services.matching import normalize  # noqa: E402
 
 
 OUTPUT_DIR = COMPARATOR_DIR / "frontend" / "data"
+ASSET_DIR = COMPARATOR_DIR / "frontend" / "assets"
+LOGO_DIR = COMPARATOR_DIR / "logo"
 LOCATIONS = {
     normalize("Iquique"): ("Tarapaca", "Iquique"),
     normalize("Arica"): ("Arica y Parinacota", "Arica"),
@@ -33,6 +36,9 @@ def slug(value: str) -> str:
 
 
 def build() -> dict[str, int]:
+    ASSET_DIR.mkdir(parents=True, exist_ok=True)
+    for filename in ("Logo_imagen.png", "Logo_imagen_texto.png"):
+        shutil.copy2(LOGO_DIR / filename, ASSET_DIR / filename)
     catalog = Catalog()
     grouped: dict[tuple[str, str], dict[tuple[str, str], dict]] = {}
     for offer in catalog.offers:

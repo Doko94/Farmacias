@@ -16,7 +16,7 @@ from .services.prescriptions import extract_text, parse_medicines
 from .services.treatments import calculate_monthly
 
 app = FastAPI(
-    title="FarmaAhorro API", version="0.1.0",
+    title="AhorraMed API", version="0.1.0",
     description="Comparador informativo de precios de medicamentos en Chile.",
 )
 app.add_middleware(

@@ -257,7 +257,20 @@
   display: none;
 }
 
+.brand-logo {
+  display: block;
+  width: 154px;
+  height: 76px;
+  object-fit: cover;
+  object-position: center;
+}
+
 @media (max-width: 600px) {
+  .brand-logo {
+    width: 128px;
+    height: 62px;
+  }
+
   .mobile-metric-slot {
     display: block;
     margin-top: 30px;

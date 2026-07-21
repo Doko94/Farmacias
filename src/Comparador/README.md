@@ -1,4 +1,4 @@
-# FarmaAhorro
+# AhorraMed
 
 Comparador informativo de medicamentos basado en los CSV generados por los
 scrapers de Ahumada, Cruz Verde, Salcobrand, Dr. Simi y Farmacia Municipal de Iquique.

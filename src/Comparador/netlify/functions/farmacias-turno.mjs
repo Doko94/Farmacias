@@ -44,7 +44,7 @@ async function fetchOfficial() {
     const timeout = setTimeout(() => controller.abort(), 1500);
     try {
       const response = await fetch(endpoint, {
-        headers: {Accept: 'application/json', 'User-Agent': 'FarmaAhorro/1.0'},
+        headers: {Accept: 'application/json', 'User-Agent': 'AhorraMed/1.0'},
         signal: controller.signal
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -67,7 +67,7 @@ async function fetchBuscaFarma(bounds, region) {
   let response;
   try {
     response = await fetch(url, {
-      headers:{Accept:'application/json','User-Agent':'Mozilla/5.0 (compatible; FarmaAhorro/1.0)'},
+      headers:{Accept:'application/json','User-Agent':'Mozilla/5.0 (compatible; AhorraMed/1.0)'},
       signal:controller.signal
     });
   } finally {
