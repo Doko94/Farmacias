@@ -39,22 +39,24 @@ function normalize(item, region='') {
 }
 
 async function fetchOfficial() {
-  const errors = [];
-  for (const endpoint of OFFICIAL_ENDPOINTS) {
+  const attempts = OFFICIAL_ENDPOINTS.map(async (endpoint) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 1500);
     try {
       const response = await fetch(endpoint, {
-        headers: {Accept: 'application/json', 'User-Agent': 'FarmaAhorro/1.0'}
+        headers: {Accept: 'application/json', 'User-Agent': 'FarmaAhorro/1.0'},
+        signal: controller.signal
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const payload = await response.json();
       const rows = Array.isArray(payload) ? payload : payload.data || payload.locales || [];
       if (!Array.isArray(rows) || !rows.length) throw new Error('Respuesta sin locales');
       return {endpoint, pharmacies: rows.map(normalize).filter(item=>item.name && item.commune)};
-    } catch (error) {
-      errors.push(`${endpoint}: ${error.message}`);
+    } finally {
+      clearTimeout(timeout);
     }
-  }
-  throw new Error(errors.join(' | '));
+  });
+  return Promise.any(attempts);
 }
 
 async function fetchBuscaFarma(bounds, region) {
