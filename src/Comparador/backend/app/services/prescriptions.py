@@ -7,11 +7,15 @@ from pathlib import Path
 
 MEDICINE_LINE = re.compile(
     r"(?P<name>[A-Za-zÁÉÍÓÚÑáéíóúñ][A-Za-zÁÉÍÓÚÑáéíóúñ\s-]{2,})"
-    r"(?:\s+(?P<dose>\d+(?:[.,]\d+)?\s*(?:mg|mcg|g|ml)))?",
+    r"(?:\s+(?P<dose>(?:\d{1,3}(?:[.\s]\d{3})+|\d+(?:[.,]\d+)?)\s*(?:mg|mcg|ug|g|ml|ui|iu|u|%)))?",
     re.IGNORECASE,
 )
 
-DOSE_PATTERN = re.compile(r"\b\d+(?:[.,]\d+)?\s*(?:mg|mcg|ug|g|ml|%)\b", re.IGNORECASE)
+DOSE_PATTERN = re.compile(
+    r"\b(?P<number>\d{1,3}(?:[.\s]\d{3})+|\d+(?:[.,]\d+)?)\s*"
+    r"(?P<unit>mg|mcg|ug|g|ml|ui|iu|u|%)\b",
+    re.IGNORECASE,
+)
 PACKAGE_SUFFIX = re.compile(
     r"\s+(?:#|n[°º]?|x)?\s*\d+\s+"
     r"(?:comprimidos?|tabletas?|capsulas?|sobres?|ampollas?|unidades?|dosis)\b.*$",
@@ -32,9 +36,18 @@ def medication_search_query(value: str) -> str:
     dose = DOSE_PATTERN.search(cleaned)
     if not dose:
         return PACKAGE_SUFFIX.sub("", cleaned).strip()
-    name = re.sub(r"[^A-Za-zÁÉÍÓÚÑáéíóúñ -]+$", "", cleaned[:dose.start()]).strip()
+    name = re.sub(r"(?:\(\s*\d+\s*\)|#\s*\d+)\s*$", "", cleaned[:dose.start()])
+    name = re.sub(r"[^A-Za-zÁÉÍÓÚÑáéíóúñ -]+$", "", name).strip()
     name = re.split(r"\b(?:tomar|usar|aplicar|administrar)\b", name, maxsplit=1, flags=re.IGNORECASE)[0].strip()
-    normalized_dose = re.sub(r"\s+", " ", dose.group(0))
+    number = dose.group("number")
+    if re.fullmatch(r"\d{1,3}(?:[.\s]\d{3})+", number):
+        number = re.sub(r"[.\s]", "", number)
+    else:
+        number = number.replace(",", ".")
+    unit = dose.group("unit")
+    if unit.casefold() in {"iu", "u"}:
+        unit = "UI"
+    normalized_dose = f"{number} {unit}"
     return f"{name} {normalized_dose}".strip()
 
 

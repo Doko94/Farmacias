@@ -27,9 +27,10 @@ const safeUrl = (value) => {
 };
 const normalizeText = (value='') => value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9%]+/g,' ').trim();
 const STRUCTURAL_WORDS = new Set(['mg','mcg','ug','g','ml','comprimido','comprimidos','tableta','tabletas','capsula','capsulas','sobre','sobres','ampolla','ampollas','unidad','unidades','dosis','parche','parches','ovulo','ovulos','oral','recubierto','recubiertos']);
+const normalizeDoseNumber = (value) => /^\d{1,3}(?:[.\s]\d{3})+$/.test(value) ? value.replace(/[.\s]/g,'') : value.replace(',','.');
 const signature = (value) => {
   const text=value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-  const doses=[...text.matchAll(/(\d+(?:[.,]\d+)?)\s*(mg|mcg|ug|g|ml|%)(?=\b)/g)].map(match=>`${match[1].replace(',','.')}|${match[2]==='ug'?'mcg':match[2]}`);
+  const doses=[...text.matchAll(/(\d{1,3}(?:[.\s]\d{3})+|\d+(?:[.,]\d+)?)\s*(mg|mcg|ug|g|ml|ui|iu|u|%)(?=\b)/g)].map(match=>`${normalizeDoseNumber(match[1])}|${match[2]==='ug'?'mcg':['iu','u'].includes(match[2])?'ui':match[2]}`);
   const packages=[...text.matchAll(/\b(\d+)\s*(comprimidos?|tabletas?|capsulas?|sobres?|ampollas?|unidades?|dosis|parches?|ovulos?)\b/g)].map(match=>`${match[1]}|${match[2].replace(/s$/,'')}`);
   return {doses,packages};
 };
@@ -350,11 +351,12 @@ let recipeQueries=[];
 const recipeEscape=(value='')=>value.replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 function recipeSearchQuery(value='') {
   const cleaned=value.replace(/^\s*(?:rp\/?\s*)?(?:\d+\s*[.)-]?\s*)?/i,'').replace(/\s+/g,' ').trim();
-  const dose=cleaned.match(/\b\d+(?:[.,]\d+)?\s*(?:mg|mcg|ug|g|ml|%)\b/i);
+  const dose=cleaned.match(/\b(\d{1,3}(?:[.\s]\d{3})+|\d+(?:[.,]\d+)?)\s*(mg|mcg|ug|g|ml|ui|iu|u|%)\b/i);
   if(!dose)return cleaned.replace(/\s+(?:#|n[°º]?|x)?\s*\d+\s+(?:comprimidos?|tabletas?|capsulas?|sobres?|ampollas?|unidades?|dosis)\b.*$/i,'').trim();
-  const beforeDose=cleaned.slice(0,dose.index).replace(/[^A-Za-zÁÉÍÓÚÑáéíóúñ -]+$/g,'').trim();
+  const beforeDose=cleaned.slice(0,dose.index).replace(/(?:\(\s*\d+\s*\)|#\s*\d+)\s*$/,'').replace(/[^A-Za-zÁÉÍÓÚÑáéíóúñ -]+$/g,'').trim();
   const name=beforeDose.split(/\b(?:tomar|usar|aplicar|administrar)\b/i)[0].trim();
-  return `${name} ${dose[0].replace(/\s+/g,' ')}`.trim();
+  const unit=['iu','u'].includes(dose[2].toLowerCase())?'UI':dose[2];
+  return `${name} ${normalizeDoseNumber(dose[1])} ${unit}`.trim();
 }
 function medicineCandidates(text) {
   const ignored=/\b(nombre|apellido|edad|direccion|avenida|av|clinica|centro|telefono|tel|doctor|doctora|dra|dr|medico|diagnostico|hipertension|rut|firma|repetir|receta|paciente|fecha|fono|uso|usar|tomar|aplicar|administrar|cada|horas?|dias?|ocasional|lunes|martes|miercoles|jueves|viernes)\b/i;
@@ -371,10 +373,10 @@ async function catalogMedicineCandidates(values) {
   for(const query of unique) {
     try {
       const matches=await searchStaticCatalog(query);
-      if(matches.length||/\b\d+(?:[.,]\d+)?\s*(?:mg|mcg|ug|g|ml|%)\b/i.test(query))accepted.push(query);
+      if(matches.length||/\b(?:\d{1,3}(?:[.\s]\d{3})+|\d+(?:[.,]\d+)?)\s*(?:mg|mcg|ug|g|ml|ui|iu|u|%)\b/i.test(query))accepted.push(query);
     } catch {
       // Si el catálogo está temporalmente inaccesible, mantenemos líneas con dosis para revisión manual.
-      if(/\b\d+(?:[.,]\d+)?\s*(?:mg|mcg|ug|g|ml|%)\b/i.test(query))accepted.push(query);
+      if(/\b(?:\d{1,3}(?:[.\s]\d{3})+|\d+(?:[.,]\d+)?)\s*(?:mg|mcg|ug|g|ml|ui|iu|u|%)\b/i.test(query))accepted.push(query);
     }
   }
   return accepted;
@@ -383,6 +385,7 @@ function showRecipeReview(text,queries,method) {
   recipeQueries=queries;
   const output=$('#recipe-output');
   output.innerHTML=`<div class="recipe-review"><b>Revisa los medicamentos antes de comparar</b><small>${method}. El reconocimiento de escritura manuscrita puede contener errores.</small><label>Un medicamento por línea<textarea id="recipe-medicines" rows="5" placeholder="Ej: Salicort loción\nKelual DS crema">${recipeEscape(queries.join('\n'))}</textarea></label><details><summary>Ver texto completo detectado</summary><pre>${recipeEscape(text||'Sin texto legible')}</pre></details></div>`;
+  if(!queries.length)output.insertAdjacentHTML('beforeend','<div class="recipe-warning">No pudimos identificar automáticamente un medicamento del catálogo. Revisa el texto detectado y escribe el nombre con su concentración en el campo anterior.</div>');
   $('#recipe-medicines').addEventListener('input',event=>{recipeQueries=event.target.value.split(/\r?\n/).map(value=>value.trim()).filter(Boolean)});
 }
 async function processRecipeFile(file) {
