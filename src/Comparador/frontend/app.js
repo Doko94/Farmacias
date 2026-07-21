@@ -388,6 +388,23 @@ function showRecipeReview(text,queries,method) {
   if(!queries.length)output.insertAdjacentHTML('beforeend','<div class="recipe-warning">No pudimos identificar automáticamente un medicamento del catálogo. Revisa el texto detectado y escribe el nombre con su concentración en el campo anterior.</div>');
   $('#recipe-medicines').addEventListener('input',event=>{recipeQueries=event.target.value.split(/\r?\n/).map(value=>value.trim()).filter(Boolean)});
 }
+async function prepareRecipeImage(file) {
+  const bitmap=await createImageBitmap(file);
+  const scale=Math.min(4,Math.max(2,1600/bitmap.width));
+  const canvas=document.createElement('canvas');
+  canvas.width=Math.round(bitmap.width*scale);canvas.height=Math.round(bitmap.height*scale);
+  const context=canvas.getContext('2d',{willReadFrequently:true});
+  context.fillStyle='#fff';context.fillRect(0,0,canvas.width,canvas.height);
+  context.imageSmoothingEnabled=true;context.imageSmoothingQuality='high';
+  context.drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close();
+  const image=context.getImageData(0,0,canvas.width,canvas.height),pixels=image.data;
+  for(let index=0;index<pixels.length;index+=4){
+    const gray=.299*pixels[index]+.587*pixels[index+1]+.114*pixels[index+2];
+    const enhanced=gray>225?255:Math.max(0,Math.min(255,(gray-128)*1.55+128));
+    pixels[index]=pixels[index+1]=pixels[index+2]=enhanced;
+  }
+  context.putImageData(image,0,0);return canvas;
+}
 async function processRecipeFile(file) {
   const output=$('#recipe-output');
   if(!file)return;
@@ -406,7 +423,8 @@ async function processRecipeFile(file) {
   }
   if(!window.Tesseract){output.innerHTML='<div class="recipe-warning">No fue posible cargar el lector OCR. Revisa tu conexión o configura el backend.</div>';return;}
   try {
-    const result=await Tesseract.recognize(file,'spa',{logger:message=>{if(message.status==='recognizing text'){const progress=Math.round((message.progress||0)*100);const label=output.querySelector('.ocr-progress span'),bar=output.querySelector('.ocr-progress i');if(label)label.textContent=`Reconociendo texto… ${progress}%`;if(bar)bar.style.setProperty('--progress',`${progress}%`)}}});
+    const preparedImage=await prepareRecipeImage(file);
+    const result=await Tesseract.recognize(preparedImage,'spa',{tessedit_pageseg_mode:'6',preserve_interword_spaces:'1',logger:message=>{if(message.status==='recognizing text'){const progress=Math.round((message.progress||0)*100);const label=output.querySelector('.ocr-progress span'),bar=output.querySelector('.ocr-progress i');if(label)label.textContent=`Reconociendo texto mejorado… ${progress}%`;if(bar)bar.style.setProperty('--progress',`${progress}%`)}}});
     const text=result.data?.text||'';
     const medicines=await catalogMedicineCandidates(medicineCandidates(text));
     showRecipeReview(text,medicines,'Lectura local y privada en tu navegador');
