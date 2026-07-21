@@ -16,3 +16,28 @@
     height: 62px;
   }
 }
+:root {
+  --ink: #064764;
+  --muted: #466b77;
+  --green: #13A797;
+  --green2: #30B26D;
+  --lime: #47B755;
+  --cream: #f3faf8;
+  --line: #C5E3DE;
+  --white: #FFFFFF;
+  --brand-gradient: linear-gradient(135deg, #13A797 0%, #30B26D 55%, #47B755 100%);
+}
+
+.turno-hero {
+  background: linear-gradient(135deg, #f4fbfa 0%, #FFFFFF 48%, #e8f5f2 100%);
+}
+
+.location-button,
+.turno-actions a.primary {
+  background: var(--brand-gradient);
+}
+
+.turno-badge {
+  background: #C5E3DE;
+  color: #064764;
+}

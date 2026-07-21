@@ -1,8 +1,59 @@
+:root {
+  --ink: #064764;
+  --muted: #466b77;
+  --green: #13A797;
+  --green2: #30B26D;
+  --lime: #47B755;
+  --cream: #f3faf8;
+  --line: #C5E3DE;
+  --white: #FFFFFF;
+  --brand-gradient: linear-gradient(135deg, #13A797 0%, #30B26D 55%, #47B755 100%);
+}
+
+.hero {
+  background: linear-gradient(135deg, #f4fbfa 0%, #FFFFFF 48%, #e8f5f2 100%);
+}
+
+.search-box button,
+.button,
+.brand-mark,
+.metric-card {
+  background: var(--brand-gradient);
+}
+
+.search-box button:hover,
+.button:hover {
+  background: linear-gradient(135deg, #0f9184 0%, #279a5e 55%, #3ca34b 100%);
+}
+
+h1 span {
+  color: #13A797;
+  background: var(--brand-gradient);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.hero-card,
+.dark-section {
+  background: #064764;
+}
+
+.mini-chart i {
+  background: linear-gradient(180deg, #47B755 0%, #30B26D 55%, #13A797 100%);
+}
+
+.pulse-icon,
+.button.accent {
+  background: #C5E3DE;
+  color: #064764;
+}
+
 .result-card.result-card--best {
   position: relative;
-  border: 2px solid #0ba37f;
+  border: 2px solid #13A797;
   padding: 19px;
-  background: linear-gradient(145deg, #f1fff8 0%, #fbfffd 68%);
+  background: linear-gradient(145deg, #edf9f6 0%, #FFFFFF 68%);
   box-shadow: 0 20px 55px rgba(8, 127, 104, 0.18);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
@@ -12,7 +63,7 @@
 }
 
 .result-card.result-card--best .price {
-  color: #087f68;
+  color: #13A797;
 }
 
 .result-card.result-card--best > a {
@@ -22,12 +73,12 @@
   min-height: 43px;
   padding: 10px 14px;
   border-radius: 11px;
-  background: #087f68;
+  background: var(--brand-gradient);
   color: #fff;
 }
 
 .result-card.result-card--best > a:hover {
-  background: #056c59;
+  background: #064764;
 }
 
 .best-badge {
@@ -38,7 +89,7 @@
   margin: -7px 0 2px;
   padding: 7px 10px;
   border-radius: 999px;
-  background: #087f68;
+  background: var(--brand-gradient);
   color: #fff;
   font-size: 11px;
   font-weight: 800;
@@ -52,8 +103,8 @@
   width: 17px;
   height: 17px;
   border-radius: 50%;
-  background: #dfff8f;
-  color: #102a2a;
+  background: #C5E3DE;
+  color: #064764;
   font-style: normal;
 }
 
@@ -72,7 +123,7 @@
 }
 
 .stock-status.in-stock {
-  color: #087f68;
+  color: #13A797;
 }
 
 .stock-status.out-stock {
@@ -238,14 +289,14 @@
   border: 1px solid #b8cbc4;
   border-radius: 999px;
   background: #fff;
-  color: #087f68;
+  color: #13A797;
   font-size: 12px;
   font-weight: 800;
   cursor: pointer;
 }
 
 .clear-results-button:hover {
-  border-color: #087f68;
+  border-color: #13A797;
   background: #f1fbf7;
 }
 
