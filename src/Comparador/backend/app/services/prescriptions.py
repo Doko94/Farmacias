@@ -11,6 +11,32 @@ MEDICINE_LINE = re.compile(
     re.IGNORECASE,
 )
 
+DOSE_PATTERN = re.compile(r"\b\d+(?:[.,]\d+)?\s*(?:mg|mcg|ug|g|ml|%)\b", re.IGNORECASE)
+PACKAGE_SUFFIX = re.compile(
+    r"\s+(?:#|n[°º]?|x)?\s*\d+\s+"
+    r"(?:comprimidos?|tabletas?|capsulas?|sobres?|ampollas?|unidades?|dosis)\b.*$",
+    re.IGNORECASE,
+)
+IGNORED_LINE = re.compile(
+    r"\b(nombre|apellido|edad|direccion|avenida|av|clinica|centro|telefono|tel|doctor|doctora|dra|dr|"
+    r"medico|diagnostico|hipertension|rut|firma|repetir|receta|paciente|fecha|fono|uso|usar|tomar|"
+    r"aplicar|administrar|cada|horas?|dias?|ocasional|lunes|martes|miercoles|jueves|viernes)\b",
+    re.IGNORECASE,
+)
+
+
+def medication_search_query(value: str) -> str:
+    """Reduce una línea de receta a nombre y concentración para buscar catálogo."""
+    cleaned = re.sub(r"^\s*(?:rp\/?\s*)?(?:\d+\s*[.)-]?\s*)?", "", value, flags=re.IGNORECASE)
+    cleaned = " ".join(cleaned.split())
+    dose = DOSE_PATTERN.search(cleaned)
+    if not dose:
+        return PACKAGE_SUFFIX.sub("", cleaned).strip()
+    name = re.sub(r"[^A-Za-zÁÉÍÓÚÑáéíóúñ -]+$", "", cleaned[:dose.start()]).strip()
+    name = re.split(r"\b(?:tomar|usar|aplicar|administrar)\b", name, maxsplit=1, flags=re.IGNORECASE)[0].strip()
+    normalized_dose = re.sub(r"\s+", " ", dose.group(0))
+    return f"{name} {normalized_dose}".strip()
+
 
 def extract_text(filename: str, content: bytes) -> tuple[str, str]:
     suffix = Path(filename).suffix.casefold()
@@ -37,12 +63,15 @@ def parse_medicines(text: str) -> list[dict]:
         line = " ".join(raw_line.split()).strip(" -•\t")
         if len(line) < 4 or len(line) > 100:
             continue
+        normalized_line = line.casefold().replace("á", "a").replace("é", "e").replace("í", "i").replace("ó", "o").replace("ú", "u")
+        if IGNORED_LINE.search(normalized_line):
+            continue
         match = MEDICINE_LINE.search(line)
         if not match:
             continue
-        name = match.group("name").strip()
-        dose = (match.group("dose") or "").strip()
-        query = f"{name} {dose}".strip()
+        query = medication_search_query(line)
+        if len(query) < 3:
+            continue
         key = query.casefold()
         if key not in seen:
             results.append({"query": query, "source_line": line, "confidence": 0.6})

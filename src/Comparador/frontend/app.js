@@ -348,11 +348,20 @@ $('#treatment-form').addEventListener('submit', async (event)=>{
 
 let recipeQueries=[];
 const recipeEscape=(value='')=>value.replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+function recipeSearchQuery(value='') {
+  const cleaned=value.replace(/^\s*(?:rp\/?\s*)?(?:\d+\s*[.)-]?\s*)?/i,'').replace(/\s+/g,' ').trim();
+  const dose=cleaned.match(/\b\d+(?:[.,]\d+)?\s*(?:mg|mcg|ug|g|ml|%)\b/i);
+  if(!dose)return cleaned.replace(/\s+(?:#|n[°º]?|x)?\s*\d+\s+(?:comprimidos?|tabletas?|capsulas?|sobres?|ampollas?|unidades?|dosis)\b.*$/i,'').trim();
+  const beforeDose=cleaned.slice(0,dose.index).replace(/[^A-Za-zÁÉÍÓÚÑáéíóúñ -]+$/g,'').trim();
+  const name=beforeDose.split(/\b(?:tomar|usar|aplicar|administrar)\b/i)[0].trim();
+  return `${name} ${dose[0].replace(/\s+/g,' ')}`.trim();
+}
 function medicineCandidates(text) {
-  const ignored=/\b(nombre|edad|direccion|doctor|medico|rut|firma|repetir|receta|paciente|fecha|fono|uso|aplicar|cada|dias?|ocasional|lunes|martes|miercoles|jueves|viernes)\b/i;
+  const ignored=/\b(nombre|apellido|edad|direccion|avenida|av|clinica|centro|telefono|tel|doctor|doctora|dra|dr|medico|diagnostico|hipertension|rut|firma|repetir|receta|paciente|fecha|fono|uso|usar|tomar|aplicar|administrar|cada|horas?|dias?|ocasional|lunes|martes|miercoles|jueves|viernes)\b/i;
   const seen=new Set();
-  return text.split(/\r?\n/).map(line=>line.replace(/[^A-Za-zÁÉÍÓÚÑáéíóúñ0-9%.,()\/-]+/g,' ').replace(/\s+/g,' ').trim())
+  return text.split(/\r?\n/).map(line=>line.replace(/[^A-Za-zÁÉÍÓÚÑáéíóúñ0-9%#.,()\/-]+/g,' ').replace(/\s+/g,' ').trim())
     .filter(line=>line.length>=4&&line.length<=90&&!ignored.test(line)&&/[A-Za-zÁÉÍÓÚÑáéíóúñ]{3}/.test(line))
+    .map(recipeSearchQuery).filter(line=>line.length>=3)
     .filter(line=>{const key=normalizeText(line);if(seen.has(key))return false;seen.add(key);return true}).slice(0,12);
 }
 function showRecipeReview(text,queries,method) {
@@ -394,11 +403,12 @@ $('#demo-optimize').addEventListener('click', async ()=>{
   if(reviewed)recipeQueries=reviewed.value.split(/\r?\n/).map(value=>value.trim()).filter(Boolean);
   const output=$('#recipe-output');
   if(!recipeQueries.length){output.insertAdjacentHTML('beforeend','<div class="recipe-warning">Sube una receta y escribe o confirma al menos un medicamento antes de optimizar.</div>');return;}
-  const {region,commune}=locationValue(); const body={region,commune,pickup:true,minimum_split_savings:1000,items:recipeQueries.map(query=>({query,quantity:1}))};
+  const searchQueries=recipeQueries.map(recipeSearchQuery).filter(Boolean);
+  const {region,commune}=locationValue(); const body={region,commune,pickup:true,minimum_split_savings:1000,items:searchQueries.map(query=>({query,quantity:1}))};
   try { const data=await api('/api/recipes/optimize',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); const r=data.recommendation; output.innerHTML=`<b>Compra optimizada: ${money(r.total)}</b><br>${r.lines.map(x=>`${x.product} en ${x.pharmacy}: ${money(x.subtotal)}`).join('<br>')}<br>Ahorro: ${money(data.savings)}`; }
   catch {
     const lines=[];
-    for(const query of recipeQueries){const matches=await searchStaticCatalog(query);const offer=matches.filter(item=>item.available!==false).sort((a,b)=>a.price-b.price)[0];lines.push(offer?`${offer.name} en ${offer.pharmacy}: ${money(offer.price)}`:`Sin coincidencia confiable para “${query}”`)}
+    for(const originalQuery of recipeQueries){const query=recipeSearchQuery(originalQuery);const matches=await searchStaticCatalog(query);const offer=matches.filter(item=>item.available!==false).sort((a,b)=>a.price-b.price)[0];lines.push(offer?`${offer.name} en ${offer.pharmacy}: ${money(offer.price)}`:`Sin coincidencia confiable para “${originalQuery}”`)}
     output.innerHTML=`<b>Resultado para los medicamentos revisados</b><br>${lines.join('<br>')}<small class="recipe-result-note">Confirma presentación, dosis, receta, stock y precio final directamente con cada farmacia.</small>`;
   }
 });
