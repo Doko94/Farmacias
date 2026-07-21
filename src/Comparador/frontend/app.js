@@ -453,10 +453,19 @@ $('#demo-optimize').addEventListener('click', async ()=>{
 });
 
 $('#alert-form').addEventListener('submit',async(event)=>{
-  event.preventDefault(); const {region,commune}=locationValue(); const body={email:$('#alert-email').value,query:$('#alert-query').value,target_price:+$('#alert-price').value||null,region,commune};
-  try { await api('/api/alerts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); $('#alert-message').textContent='Alerta creada correctamente.'; }
-  catch { $('#alert-message').textContent='Demo guardada localmente. Conecta la API para activar notificaciones reales.'; localStorage.setItem('farma_demo_alert',JSON.stringify(body)); }
+  event.preventDefault(); const {region,commune}=locationValue(); const body={email:$('#alert-email').value,query:$('#alert-query').value,target_price:null,region,commune};
+  try { await api('/api/alerts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); $('#alert-message').textContent='Alerta creada. Te avisaremos cuando detectemos una baja frente al precio anterior.'; }
+  catch { $('#alert-message').textContent='Alerta guardada en este dispositivo. Conecta la API para activar el envío de notificaciones.'; localStorage.setItem('farma_demo_alert',JSON.stringify(body)); }
 });
+
+async function refreshAlertProducts() {
+  const list=$('#alert-products');
+  try {
+    const products=await loadStaticCatalog();
+    const names=[...new Set(products.filter(item=>item.price>0).map(item=>item.name))].sort((a,b)=>a.localeCompare(b,'es'));
+    list.innerHTML=names.map(name=>`<option value="${recipeEscape(name)}"></option>`).join('');
+  } catch { list.innerHTML=''; }
+}
 
 $('.menu-btn').addEventListener('click',()=>{ const links=$('.nav-links'); links.classList.toggle('open'); $('.menu-btn').setAttribute('aria-expanded',links.classList.contains('open')); });
 
@@ -469,9 +478,10 @@ $('#region-select').addEventListener('change',()=>{
     communeSelect.appendChild(option);
   });
   updateHeroCoverage();
+  refreshAlertProducts();
 });
 
-$('#commune-select').addEventListener('change',updateHeroCoverage);
+$('#commune-select').addEventListener('change',()=>{updateHeroCoverage();refreshAlertProducts()});
 
 const mobileMetricQuery=window.matchMedia('(max-width: 600px)');
 function placeCatalogMetricCard(event=mobileMetricQuery) {
@@ -487,3 +497,4 @@ function placeCatalogMetricCard(event=mobileMetricQuery) {
 mobileMetricQuery.addEventListener?.('change',placeCatalogMetricCard);
 placeCatalogMetricCard();
 updateHeroCoverage();
+refreshAlertProducts();

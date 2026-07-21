@@ -110,10 +110,10 @@
     </section>
 
     <section id="alertas" class="section dark-section"><div class="container split-grid">
-      <div><span class="kicker light">ALERTAS DE PRECIO</span><h2>Que el precio baje antes que se te acabe.</h2><p>Crea una alerta para un medicamento y registra el precio objetivo que estás esperando.</p></div>
+      <div><span class="kicker light">ALERTAS DE PRECIO</span><h2>Que el precio baje antes que se te acabe.</h2><p>Selecciona un producto del catálogo y te avisaremos cuando su nuevo precio sea menor que el registrado anteriormente.</p></div>
       <form id="alert-form" class="alert-form">
-        <input id="alert-query" required placeholder="Medicamento"><input id="alert-price" type="number" min="1" placeholder="Precio objetivo">
-        <input id="alert-email" type="email" required placeholder="tu@email.cl"><button class="button accent" type="submit">Crear alerta</button>
+        <input id="alert-query" list="alert-products" required autocomplete="off" placeholder="Busca un medicamento o producto"><datalist id="alert-products"></datalist>
+        <input id="alert-email" type="email" required placeholder="tu@email.cl"><button class="button accent" type="submit">Avisarme si baja de precio</button>
         <div id="alert-message" class="form-message"></div>
       </form>
     </div></section>

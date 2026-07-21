@@ -33,8 +33,16 @@ def evaluate_alerts(catalog: Catalog) -> list[dict]:
             if not matches:
                 continue
             offer, _score = matches[0]
-            target = alert["target_price"]
-            if target is not None and offer.price > target:
+            history = connection.execute(
+                """SELECT price, captured_at FROM price_history
+                WHERE pharmacy = ? AND sku = ? AND region = ? AND commune = ?
+                ORDER BY captured_at DESC LIMIT 2""",
+                (offer.pharmacy, offer.sku, alert["region"], alert["commune"]),
+            ).fetchall()
+            if len(history) < 2:
+                continue
+            current, previous = history[0], history[1]
+            if current["captured_at"] <= alert["created_at"] or current["price"] >= previous["price"]:
                 continue
             existing = connection.execute(
                 """SELECT id FROM alert_events
@@ -52,6 +60,9 @@ def evaluate_alerts(catalog: Catalog) -> list[dict]:
             events.append({
                 "alert_id": alert["id"], "email": alert["email"],
                 "query": alert["query"], "pharmacy": offer.pharmacy,
-                "product": offer.name, "price": offer.price, "url": offer.url,
+                "product": offer.name, "price": offer.price,
+                "previous_price": previous["price"],
+                "drop_amount": previous["price"] - offer.price,
+                "url": offer.url,
             })
     return events

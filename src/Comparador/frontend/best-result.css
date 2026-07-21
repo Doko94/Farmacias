@@ -117,6 +117,14 @@ h1 span {
   background: #064764;
 }
 
+.dark-section .split-grid > div > p {
+  color: #d7e9e7;
+}
+
+.dark-section .alert-form .button {
+  grid-column: 1 / -1;
+}
+
 .mini-chart i {
   background: linear-gradient(180deg, #47B755 0%, #30B26D 55%, #13A797 100%);
 }
