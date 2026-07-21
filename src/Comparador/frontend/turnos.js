@@ -127,7 +127,7 @@ async function loadRegion(region='Tarapacá') {
     render();
   } catch(error) {
     pharmacies=[]; clearMarkers(); $('#turno-count').textContent='0'; updateCommunes();
-    $('#turno-status').hidden=false; $('#turno-status').innerHTML='No fue posible actualizar la información en este momento. <a href="https://www.minsal.cl/farmanet/" target="_blank" rel="noopener">Consultar FARMANET</a>.';
+    $('#turno-status').hidden=false; $('#turno-status').innerHTML='No fue posible actualizar la información en este momento. <a href="https://seremienlinea.minsal.cl/asdigital/index.php?mfarmacias" target="_blank" rel="noopener">Consultar el mapa oficial MINSAL</a>.';
     $('#turno-source').textContent=error.message;
   }
 }

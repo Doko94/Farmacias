@@ -7,7 +7,7 @@ scrapers de Ahumada, Cruz Verde, Salcobrand, Dr. Simi y Farmacia Municipal de Iq
 
 - búsqueda por nombre, marca o principio activo;
 - historial detallado mediante snapshots en SQLite;
-- alertas por precio objetivo;
+- alertas cuando el precio baja respecto del registro histórico anterior;
 - cálculo mensual de tratamientos;
 - optimización de recetas entre varias farmacias;
 - comparación de bioequivalentes;
@@ -59,8 +59,14 @@ carpeta `frontend`. Netlify aloja el frontend; despliega FastAPI en un servicio
 Python y configura su URL con `farma_api`.
 
 La ruta `farmacias-turno.html` consume `/.netlify/functions/farmacias-turno`.
-La función normaliza y almacena temporalmente la respuesta pública de FARMANET;
-el mapa se muestra con Leaflet y OpenStreetMap, sin una clave de Google Maps.
+La función consulta primero el mapa oficial de SEREMI en Línea/MINSAL y guarda
+una copia por fecha y región en Netlify Blobs. Si la fuente oficial no responde,
+utiliza la última copia válida y luego FARMANET o BuscaFarma como respaldo. El
+mapa se muestra con Leaflet y OpenStreetMap, sin una clave de Google Maps.
+
+La función programada `actualizar-turnos` se ejecuta cada tres horas y actualiza
+cuatro regiones por ciclo. Las 16 regiones se refrescan al menos dos veces al
+día; además, cada consulta actualiza bajo demanda una región sin copia vigente.
 
 Los campos enriquecidos de Ahumada (Fonasa, bioequivalencia y disponibilidad)
 se incorporan al volver a ejecutar `src/Scraper/Ahumada/ahumada_scraper.py` y

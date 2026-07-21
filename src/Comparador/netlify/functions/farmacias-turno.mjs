@@ -1,3 +1,7 @@
+import { getStore } from '@netlify/blobs';
+
+const SEREMI_ENDPOINT = 'https://seremienlinea.minsal.cl/asdigital/mfarmacias/mapa.php';
+export const MINSAL_REGIONS = ['Arica y Parinacota','Tarapacá','Antofagasta','Atacama','Coquimbo','Valparaíso','Metropolitana',"O'Higgins",'Maule','Ñuble','Biobío','La Araucanía','Los Ríos','Los Lagos','Aysén','Magallanes'];
 const OFFICIAL_ENDPOINTS = [
   'https://farmanet.minsal.cl/maps/index.php/ws/getLocalesTurnos',
   'https://farmanet.minsal.cl/index.php/ws/getLocalesTurnos',
@@ -13,6 +17,59 @@ const number = (value) => {
   const parsed = Number(String(value ?? '').replace(',', '.'));
   return Number.isFinite(parsed) ? parsed : null;
 };
+const comparable = (value='') => value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+const slug = (value='') => comparable(value).replace(/\s+/g,'-');
+const chileParts = () => Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:'America/Santiago',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).formatToParts(new Date()).filter(part=>part.type!=='literal').map(part=>[part.type,part.value]));
+const chileNow = () => { const parts=chileParts(); return {date:`${parts.year}-${parts.month}-${parts.day}`,time:`${parts.hour}:${parts.minute}:${parts.second}`}; };
+const cleanHtml = (value='') => text(value).replace(/<br\s*\/?\s*>/gi,' · ').replace(/<[^>]+>/g,' ').replace(/&nbsp;/gi,' ').replace(/&amp;/gi,'&').replace(/\s+/g,' ').trim();
+
+async function postSeremi(body, timeoutMs=8000) {
+  const controller=new AbortController(); const timeout=setTimeout(()=>controller.abort(),timeoutMs);
+  try {
+    const response=await fetch(SEREMI_ENDPOINT,{method:'POST',headers:{Accept:'application/json','Content-Type':'application/x-www-form-urlencoded;charset=UTF-8','User-Agent':'AhorraMed/1.0'},body:new URLSearchParams(body),signal:controller.signal});
+    if(!response.ok)throw new Error(`SEREMI HTTP ${response.status}`);
+    const payload=await response.json(); if(!payload?.correcto)throw new Error(payload?.info||'Respuesta SEREMI inválida'); return payload.respuesta;
+  } finally { clearTimeout(timeout); }
+}
+
+async function mapLimit(items, limit, mapper) {
+  const output=new Array(items.length); let cursor=0;
+  await Promise.all(Array.from({length:Math.min(limit,items.length)},async()=>{while(cursor<items.length){const index=cursor++;output[index]=await mapper(items[index],index)}}));
+  return output;
+}
+
+function regionMatch(regions, requested) {
+  const wanted=comparable(requested);
+  return regions.find(item=>{const name=comparable(item.nombre);return name===wanted||name.includes(wanted)||wanted.includes(name)||wanted==="o higgins"&&name.includes('higgins')});
+}
+
+export async function fetchSeremiRegion(requestedRegion) {
+  const [regions,dates]=await Promise.all([postSeremi({func:'regiones'}),postSeremi({func:'fechas'})]);
+  const region=regionMatch(regions,requestedRegion); if(!region)throw new Error('Región no disponible en SEREMI');
+  const now=chileNow(); const available=Object.keys(dates||{}).sort(); const date=dates?.[now.date]?now.date:available.find(value=>value>=now.date)||available[0];
+  if(!date)throw new Error('SEREMI no informó fechas de turno');
+  const [communes,response]=await Promise.all([postSeremi({func:'comunas',region:region.id}),postSeremi({func:'region',filtro:'turnos',fecha:date,region:region.id,hora:now.time})]);
+  const communeNames=new Map((communes||[]).map(item=>[String(item.id),text(item.nombre)])); const locals=response?.locales||[];
+  const detailed=await mapLimit(locals,6,async local=>{
+    try { return await postSeremi({func:'local',im:local.im,lt:local.lt||'',lg:local.lg||'',tp:local.tp||'',fecha:date}); }
+    catch { return null; }
+  });
+  const pharmacies=locals.map((marker,index)=>{
+    const detail=detailed[index]||{},local=detail.local||{},schedule=detail.horario||{};
+    const duty=cleanHtml(schedule.turno),times=duty.match(/(?:De\s+)?(\d{1,2}:\d{2})\s+a\s+(\d{1,2}:\d{2})/i);
+    return {id:text(marker.im),date,name:text(local.nm)||`Farmacia ${marker.im}`,region:text(region.nombre),region_id:text(region.id),commune:communeNames.get(String(local.cm))||'',locality:'',address:text(local.dr),phone:text(local.tl),latitude:number(marker.lt),longitude:number(marker.lg),opens_at:times?.[1]||'',closes_at:times?.[2]||'',weekday:'',type:String(marker.tp)==='3'?'Farmacia de urgencia':'Farmacia de turno',open_now:null,on_duty:true,schedule:cleanHtml(schedule.semana),duty_schedule:duty};
+  }).filter(item=>item.name&&item.commune&&item.latitude!==null&&item.longitude!==null);
+  if(!pharmacies.length)throw new Error('SEREMI no devolvió farmacias de turno con detalle');
+  return {endpoint:SEREMI_ENDPOINT,date,pharmacies};
+}
+
+function blobStore() { try { return getStore({name:'farmacias-turno',consistency:'strong'}); } catch { return null; } }
+async function readBlob(key) { try { return await blobStore()?.get(key,{type:'json'})||null; } catch { return null; } }
+async function writeBlob(key,value) { try { await blobStore()?.setJSON(key,value); } catch {} }
+export async function persistSeremiRegion(region) {
+  const result=await fetchSeremiRegion(region); const body={source:'SEREMI en Línea · Ministerio de Salud de Chile',source_url:result.endpoint,fetched_at:new Date().toISOString(),effective_date:result.date,indirect:false,pharmacies:result.pharmacies};
+  await Promise.all([writeBlob(`${result.date}:${slug(region)}`,body),writeBlob(`latest:${slug(region)}`,body)]); return body;
+}
 
 function normalize(item, region='') {
   return {
@@ -137,16 +194,17 @@ export default async (request) => {
   try {
     let result; let source; let indirect=false;
     try {
-      result=await fetchOfficial();
-      result.pharmacies=result.pharmacies.filter(item=>inside(item,bounds));
-      source='FARMANET · Ministerio de Salud de Chile';
+      const stored=await readBlob(`latest:${slug(region)}`); const today=chileNow().date;
+      if(stored?.effective_date===today&&now-new Date(stored.fetched_at).getTime()<CACHE_MS) {
+        const body={...stored,pharmacies:stored.pharmacies.filter(item=>inside(item,bounds))}; memoryCache.set(cacheKey,{timestamp:now,body}); return Response.json(body,{headers:{'Cache-Control':'public, max-age=300, s-maxage=1800'}});
+      }
+      const body=await persistSeremiRegion(region); body.pharmacies=body.pharmacies.filter(item=>inside(item,bounds)); memoryCache.set(cacheKey,{timestamp:now,body}); return Response.json(body,{headers:{'Cache-Control':'public, max-age=300, s-maxage=1800, stale-while-revalidate=86400'}});
     } catch {
       try {
-        result=await fetchBuscaFarma(bounds,region);
-        source='BuscaFarma · información pública consolidada'; indirect=true;
+        result=await fetchOfficial(); result.pharmacies=result.pharmacies.filter(item=>inside(item,bounds)); source='FARMANET · Ministerio de Salud de Chile';
       } catch {
-        result=await fetchBuscaFarmaViaReader(bounds,region);
-        source='BuscaFarma · información pública consolidada mediante servicio de respaldo'; indirect=true;
+        try { result=await fetchBuscaFarma(bounds,region); source='BuscaFarma · información pública consolidada'; indirect=true; }
+        catch { result=await fetchBuscaFarmaViaReader(bounds,region); source='BuscaFarma · información pública consolidada mediante servicio de respaldo'; indirect=true; }
       }
     }
     const body = {
@@ -159,6 +217,8 @@ export default async (request) => {
     memoryCache.set(cacheKey,{timestamp: now, body});
     return Response.json(body, {headers:{'Cache-Control':'public, max-age=300, s-maxage=1800, stale-while-revalidate=86400'}});
   } catch (error) {
+    const stored=await readBlob(`latest:${slug(region)}`);
+    if(stored)return Response.json({...stored,stale:true,pharmacies:stored.pharmacies.filter(item=>inside(item,bounds))},{headers:{'Cache-Control':'no-cache'}});
     if (cached) return Response.json({...cached.body, stale:true}, {headers:{'Cache-Control':'no-cache'}});
     return Response.json({error:'El servicio oficial de farmacias de turno no está disponible temporalmente.'}, {status:503, headers:{'Cache-Control':'no-store'}});
   }
