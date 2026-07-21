@@ -14,6 +14,10 @@
   background: linear-gradient(135deg, #f4fbfa 0%, #FFFFFF 48%, #e8f5f2 100%);
 }
 
+.mobile-turno-link {
+  display: none;
+}
+
 .hero .search-box {
   position: relative;
   margin-top: 66px;
@@ -374,6 +378,33 @@ h1 span {
 }
 
 @media (max-width: 600px) {
+  .mobile-turno-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 42px;
+    margin: -2px 14px 10px;
+    border: 1px solid #13A797;
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(19,167,151,.1), rgba(71,183,85,.13));
+    color: #064764;
+    font-size: 13px;
+    font-weight: 800;
+    box-shadow: 0 8px 20px rgba(6,71,100,.08);
+  }
+
+  .mobile-turno-link span {
+    display: grid;
+    place-items: center;
+    width: 23px;
+    height: 23px;
+    border-radius: 7px;
+    background: var(--brand-gradient);
+    color: #FFFFFF;
+    font-size: 13px;
+  }
+
   .hero .search-box {
     margin-top: 58px;
     padding: 8px 8px 8px 16px;
