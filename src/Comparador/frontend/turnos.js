@@ -31,6 +31,7 @@ const normalize=(value='')=>value.toLowerCase().normalize('NFD').replace(/[\u030
 const regionName=(item)=>REGION_NAMES[item.region_id]||item.region||'Región no informada';
 const validCoordinates=(item)=>Number.isFinite(item.latitude)&&Number.isFinite(item.longitude)&&item.latitude>=-57&&item.latitude<=-17&&item.longitude>=-77&&item.longitude<=-66;
 const timeText=(value)=>value?value.slice(0,5):'No informado';
+const scheduleText=(item)=>item.duty_schedule||item.schedule||(item.opens_at||item.closes_at?`${timeText(item.opens_at)}–${timeText(item.closes_at)}`:'Horario no informado');
 const toMinutes=(value)=>{const [hour,minute]=String(value||'').split(':').map(Number);return Number.isFinite(hour)&&Number.isFinite(minute)?hour*60+minute:null;};
 function isOpen(item) {
   if(typeof item.open_now==='boolean') return item.open_now;
@@ -79,7 +80,7 @@ function createCard(item) {
   header.append(title,badge); card.appendChild(header);
   const address=document.createElement('span'); address.className='turno-address'; address.textContent=`${item.address}${item.commune?`, ${item.commune}`:''}`; card.appendChild(address);
   const hours=document.createElement('span'); hours.className='turno-hours';
-  hours.textContent=`Horario informado: ${item.duty_schedule||item.schedule||`${timeText(item.opens_at)}–${timeText(item.closes_at)}`}${item.weekday?` · ${item.weekday}`:''}`; card.appendChild(hours);
+  hours.textContent=`Horario informado: ${scheduleText(item)}${item.weekday?` · ${item.weekday}`:''}`; card.appendChild(hours);
   if(distance!==null){const line=document.createElement('span');line.className='turno-distance';line.textContent=`A ${distance<10?distance.toFixed(1):Math.round(distance)} km de tu ubicación`;card.appendChild(line);}
   const actions=document.createElement('div'); actions.className='turno-actions';
   if(item.phone){const call=document.createElement('a');call.href=`tel:${item.phone.replace(/[^+\d]/g,'')}`;call.textContent='Llamar';actions.appendChild(call);}
@@ -99,7 +100,7 @@ function render() {
     container.appendChild(createCard(item));
     if(validCoordinates(item)) {
       const marker=L.marker([item.latitude,item.longitude],{icon:markerIcon(isOpen(item))}).addTo(map);
-      marker.bindPopup(`<b>${item.name.replace(/[<>&]/g,'')}</b><br>${item.address.replace(/[<>&]/g,'')}<br>${timeText(item.opens_at)}–${timeText(item.closes_at)}`); markers.push(marker);
+      marker.bindPopup(`<b>${item.name.replace(/[<>&]/g,'')}</b><br>${item.address.replace(/[<>&]/g,'')}<br>${scheduleText(item).replace(/[<>&]/g,'')}`); markers.push(marker);
     }
   });
   $('#turno-status').hidden=filtered.length>0;
