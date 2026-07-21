@@ -346,18 +346,61 @@ $('#treatment-form').addEventListener('submit', async (event)=>{
   $('#treatment-result').innerHTML=`<span>Costo estimado para ${body.days} días</span><strong>${money(result.total)}</strong><p>${item?.packages||0} envase(s) · ${item?.product||query}<br>Mejor alternativa disponible: ${item?.pharmacy||'sin coincidencia'}</p>`;
 });
 
-$('#recipe-file').addEventListener('change', async (event)=>{
-  const file=event.target.files[0]; if(!file)return; const output=$('#recipe-output'); output.textContent='Procesando receta…';
-  const form=new FormData(); form.append('file',file);
-  try { const data=await api('/api/recipes/extract',{method:'POST',body:form}); output.innerHTML=`<b>${data.medicines.length} posibles medicamentos detectados</b><br>${data.medicines.map(m=>m.query).join('<br>')||'Revisa manualmente el texto extraído.'}`; }
-  catch(error){ output.textContent=`Para procesar la receta conecta el backend Python. Archivo seleccionado: ${file.name}`; }
-});
+let recipeQueries=[];
+const recipeEscape=(value='')=>value.replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+function medicineCandidates(text) {
+  const ignored=/\b(nombre|edad|direccion|doctor|medico|rut|firma|repetir|receta|paciente|fecha|fono|uso|aplicar|cada|dias?|ocasional|lunes|martes|miercoles|jueves|viernes)\b/i;
+  const seen=new Set();
+  return text.split(/\r?\n/).map(line=>line.replace(/[^A-Za-zÁÉÍÓÚÑáéíóúñ0-9%.,()\/-]+/g,' ').replace(/\s+/g,' ').trim())
+    .filter(line=>line.length>=4&&line.length<=90&&!ignored.test(line)&&/[A-Za-zÁÉÍÓÚÑáéíóúñ]{3}/.test(line))
+    .filter(line=>{const key=normalizeText(line);if(seen.has(key))return false;seen.add(key);return true}).slice(0,12);
+}
+function showRecipeReview(text,queries,method) {
+  recipeQueries=queries;
+  const output=$('#recipe-output');
+  output.innerHTML=`<div class="recipe-review"><b>Revisa los medicamentos antes de comparar</b><small>${method}. El reconocimiento de escritura manuscrita puede contener errores.</small><label>Un medicamento por línea<textarea id="recipe-medicines" rows="5" placeholder="Ej: Salicort loción\nKelual DS crema">${recipeEscape(queries.join('\n'))}</textarea></label><details><summary>Ver texto completo detectado</summary><pre>${recipeEscape(text||'Sin texto legible')}</pre></details></div>`;
+  $('#recipe-medicines').addEventListener('input',event=>{recipeQueries=event.target.value.split(/\r?\n/).map(value=>value.trim()).filter(Boolean)});
+}
+async function processRecipeFile(file) {
+  const output=$('#recipe-output');
+  if(!file)return;
+  if(file.size>10*1024*1024){output.textContent='El archivo supera el máximo de 10 MB.';return;}
+  output.innerHTML=`<div class="ocr-progress"><b>Procesando ${recipeEscape(file.name)}</b><span>Preparando lectura…</span><i style="--progress:3%"></i></div>`;
+  const form=new FormData();form.append('file',file);
+  try {
+    const data=await api('/api/recipes/extract',{method:'POST',body:form});
+    showRecipeReview(data.text||'',data.medicines.map(item=>item.query),'Lectura realizada por el backend');
+    return;
+  } catch {}
+  if(file.type==='application/pdf'||file.name.toLowerCase().endsWith('.pdf')) {
+    output.innerHTML='<div class="recipe-warning">El procesamiento local admite fotografías. Para leer este PDF debes conectar el backend desde la página API para desarrolladores.</div>';
+    return;
+  }
+  if(!window.Tesseract){output.innerHTML='<div class="recipe-warning">No fue posible cargar el lector OCR. Revisa tu conexión o configura el backend.</div>';return;}
+  try {
+    const result=await Tesseract.recognize(file,'spa',{logger:message=>{if(message.status==='recognizing text'){const progress=Math.round((message.progress||0)*100);const label=output.querySelector('.ocr-progress span'),bar=output.querySelector('.ocr-progress i');if(label)label.textContent=`Reconociendo texto… ${progress}%`;if(bar)bar.style.setProperty('--progress',`${progress}%`)}}});
+    const text=result.data?.text||'';
+    showRecipeReview(text,medicineCandidates(text),'Lectura local y privada en tu navegador');
+  } catch(error) {output.innerHTML=`<div class="recipe-warning">No pudimos leer la fotografía automáticamente. Puedes conectar el backend o intentar con una imagen más nítida. ${recipeEscape(error.message||'')}</div>`;}
+}
+$('#recipe-file').addEventListener('change',event=>processRecipeFile(event.target.files[0]));
+const dropZone=$('#drop-zone');
+['dragenter','dragover'].forEach(name=>dropZone.addEventListener(name,event=>{event.preventDefault();dropZone.classList.add('dragging')}));
+['dragleave','drop'].forEach(name=>dropZone.addEventListener(name,event=>{event.preventDefault();dropZone.classList.remove('dragging')}));
+dropZone.addEventListener('drop',event=>processRecipeFile(event.dataTransfer.files[0]));
 
 $('#demo-optimize').addEventListener('click', async ()=>{
-  const {region,commune}=locationValue(); const body={region,commune,pickup:true,minimum_split_savings:1000,items:[{query:'paracetamol',quantity:2},{query:'ibuprofeno',quantity:1}]};
+  const reviewed=$('#recipe-medicines');
+  if(reviewed)recipeQueries=reviewed.value.split(/\r?\n/).map(value=>value.trim()).filter(Boolean);
   const output=$('#recipe-output');
+  if(!recipeQueries.length){output.insertAdjacentHTML('beforeend','<div class="recipe-warning">Sube una receta y escribe o confirma al menos un medicamento antes de optimizar.</div>');return;}
+  const {region,commune}=locationValue(); const body={region,commune,pickup:true,minimum_split_savings:1000,items:recipeQueries.map(query=>({query,quantity:1}))};
   try { const data=await api('/api/recipes/optimize',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); const r=data.recommendation; output.innerHTML=`<b>Compra optimizada: ${money(r.total)}</b><br>${r.lines.map(x=>`${x.product} en ${x.pharmacy}: ${money(x.subtotal)}`).join('<br>')}<br>Ahorro: ${money(data.savings)}`; }
-  catch { output.innerHTML='<b>Ejemplo de optimización</b><br>Paracetamol en Ahumada: $2.580<br>Ibuprofeno en Dr. Simi: $2.100<br><b>Total: $4.680</b>'; }
+  catch {
+    const lines=[];
+    for(const query of recipeQueries){const matches=await searchStaticCatalog(query);const offer=matches.filter(item=>item.available!==false).sort((a,b)=>a.price-b.price)[0];lines.push(offer?`${offer.name} en ${offer.pharmacy}: ${money(offer.price)}`:`Sin coincidencia confiable para “${query}”`)}
+    output.innerHTML=`<b>Resultado para los medicamentos revisados</b><br>${lines.join('<br>')}<small class="recipe-result-note">Confirma presentación, dosis, receta, stock y precio final directamente con cada farmacia.</small>`;
+  }
 });
 
 $('#alert-form').addEventListener('submit',async(event)=>{
