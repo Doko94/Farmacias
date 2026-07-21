@@ -62,11 +62,25 @@ async function fetchOfficial() {
 async function fetchBuscaFarma(bounds, region) {
   const url = new URL('https://buscafarma.cl/api/farmacias');
   Object.entries(bounds).forEach(([key,value])=>url.searchParams.set(key,String(value)));
-  const response = await fetch(url, {headers:{Accept:'application/json','User-Agent':'FarmaAhorro/1.0'}});
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 3000);
+  let response;
+  try {
+    response = await fetch(url, {
+      headers:{Accept:'application/json','User-Agent':'Mozilla/5.0 (compatible; FarmaAhorro/1.0)'},
+      signal:controller.signal
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
   if(!response.ok) throw new Error(`BuscaFarma HTTP ${response.status}`);
   const rows = await response.json();
   if(!Array.isArray(rows)) throw new Error('Respuesta de respaldo inválida');
-  return {endpoint:url.toString(),pharmacies:rows.map(item=>normalize({
+  return normalizeBuscaFarmaRows(rows,url.toString(),region);
+}
+
+function normalizeBuscaFarmaRows(rows, endpoint, region) {
+  return {endpoint,pharmacies:rows.map(item=>normalize({
     ...item,
     local_id:item.im,
     local_nombre:item.nombre,
@@ -76,6 +90,27 @@ async function fetchBuscaFarma(bounds, region) {
     local_lng:item.lng,
     comuna_nombre:item.comuna
   },region)).filter(item=>item.name&&item.commune)};
+}
+
+async function fetchBuscaFarmaViaReader(bounds, region) {
+  const query = new URLSearchParams(bounds).toString();
+  const endpoint = `https://buscafarma.cl/api/farmacias?${query}`;
+  const readerUrl = `https://r.jina.ai/http://buscafarma.cl/api/farmacias?${query}`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 7000);
+  let response;
+  try {
+    response = await fetch(readerUrl,{headers:{Accept:'text/plain'},signal:controller.signal});
+  } finally {
+    clearTimeout(timeout);
+  }
+  if(!response.ok) throw new Error(`Lector HTTP ${response.status}`);
+  const content=await response.text();
+  const marker='Markdown Content:';
+  const jsonText=(content.includes(marker)?content.slice(content.indexOf(marker)+marker.length):content).trim();
+  const rows=JSON.parse(jsonText);
+  if(!Array.isArray(rows)) throw new Error('Respuesta del lector inválida');
+  return normalizeBuscaFarmaRows(rows,endpoint,region);
 }
 
 function requestBounds(url) {
@@ -106,8 +141,13 @@ export default async (request) => {
       result.pharmacies=result.pharmacies.filter(item=>inside(item,bounds));
       source='FARMANET · Ministerio de Salud de Chile';
     } catch {
-      result=await fetchBuscaFarma(bounds,region);
-      source='BuscaFarma · información pública consolidada'; indirect=true;
+      try {
+        result=await fetchBuscaFarma(bounds,region);
+        source='BuscaFarma · información pública consolidada'; indirect=true;
+      } catch {
+        result=await fetchBuscaFarmaViaReader(bounds,region);
+        source='BuscaFarma · información pública consolidada mediante servicio de respaldo'; indirect=true;
+      }
     }
     const body = {
       source,
