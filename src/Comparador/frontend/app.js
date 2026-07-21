@@ -10,7 +10,8 @@ const PHARMACY_LOGOS = {
   Ahumada: 'https://www.farmaciasahumada.cl/on/demandware.static/Sites-ahumada-cl-Site/-/default/dw8f7ce49d/images/logo.svg',
   'Cruz Verde': 'https://www.cruzverde.cl/assets/favicon/favicon-32x32.png',
   Salcobrand: 'https://static.salcobrand.cl/assets/logo-73fe73eb9cf65adf981684077f38a616190d7759b74439763a45b9b985fc36e5.svg',
-  'Dr. Simi': 'https://farmaciasdeldrsimicl.vtexassets.com/assets/vtex.file-manager-graphql/images/35ac1c04-2540-45f1-9996-346729464da8___7af9fc3d4ed0be2760b1bddf801da897.png'
+  'Dr. Simi': 'https://farmaciasdeldrsimicl.vtexassets.com/assets/vtex.file-manager-graphql/images/35ac1c04-2540-45f1-9996-346729464da8___7af9fc3d4ed0be2760b1bddf801da897.png',
+  'Farmacia Municipal Iquique': 'https://www.municipioiquique.cl/img/logos/logo-municipalidad_iquique.svg'
 };
 const locationValue = () => ({region:$('#region-select').value,commune:$('#commune-select').value});
 const formatDate = (value) => {
@@ -177,9 +178,10 @@ function renderResults(products, source='api') {
     const pharmacyClass=product.pharmacy==='Ahumada'?' pharmacy-title--ahumada':'';
     const pharmacyName=product.pharmacy==='Ahumada'?'':`<span>${product.pharmacy}</span>`;
     const pharmacyTitle=`<span class="pharmacy pharmacy-title${pharmacyClass}">${logo?`<img src="${logo}" alt="Logo ${product.pharmacy}" loading="lazy">`:''}${pharmacyName}</span>`;
+    const pharmacyNotice=product.pharmacy==='Farmacia Municipal Iquique'?'<small class="municipal-notice">Beneficio para personas inscritas con domicilio acreditado en Iquique.</small>':'';
     const badges=`<div class="product-badges">${product.bioequivalent?'<span class="product-badge bioequivalent">B Bioequivalente</span>':''}${product.fonasa_price?'<span class="product-badge fonasa">Fonasa</span>':''}</div>`;
     const fonasaPrice=product.fonasa_price?`<div class="fonasa-price"><span>Precio Fonasa</span><strong>${money(product.fonasa_price)}</strong></div>`:'';
-    card.innerHTML=`${isBest?'<span class="best-badge"><i>✓</i> Mejor opción</span>':''}${pharmacyTitle}<h3>${product.name}</h3><span>${product.brand||'Marca no informada'}</span>${product.active_ingredient?`<small><b>Principio activo:</b> ${product.active_ingredient}</small>`:''}${badges}${fonasaPrice}<div><span class="price">${money(product.price)}</span> ${product.list_price?`<span class="old">${money(product.list_price)}</span>`:''}</div><div class="result-meta"><span class="stock-status ${product.available?'in-stock':'out-stock'}">${product.available?'●':'○'} ${stock}</span><span>${commune}, ${region}</span><span>Actualizado: ${formatDate(product.captured_at)}</span></div><small>${isBest?'Coincidencia exacta · Menor precio disponible':'Coincidencia exacta · Comparado'}</small>${action}`;
+    card.innerHTML=`${isBest?'<span class="best-badge"><i>✓</i> Mejor opción</span>':''}${pharmacyTitle}${pharmacyNotice}<h3>${product.name}</h3><span>${product.brand||'Marca no informada'}</span>${product.active_ingredient?`<small><b>Principio activo:</b> ${product.active_ingredient}</small>`:''}${badges}${fonasaPrice}<div><span class="price">${money(product.price)}</span> ${product.list_price?`<span class="old">${money(product.list_price)}</span>`:''}</div><div class="result-meta"><span class="stock-status ${product.available?'in-stock':'out-stock'}">${product.available?'●':'○'} ${stock}</span><span>${commune}, ${region}</span><span>Actualizado: ${formatDate(product.captured_at)}</span></div><small>${isBest?'Coincidencia exacta · Menor precio disponible':'Coincidencia exacta · Comparado'}</small>${action}`;
     container.appendChild(card);
   });
   if(source==='static') container.insertAdjacentHTML('beforebegin','<p id="demo-note" class="tool-output"><b>Información de precios:</b> última actualización disponible para la ubicación seleccionada.</p>');

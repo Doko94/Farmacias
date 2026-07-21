@@ -109,6 +109,15 @@
   line-height: 1.2;
 }
 
+.municipal-notice {
+  padding: 8px 10px;
+  border-radius: 9px;
+  background: #eef6ff;
+  color: #315f86;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
 .product-badges {
   display: flex;
   flex-wrap: wrap;

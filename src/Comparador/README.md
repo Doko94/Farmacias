@@ -1,7 +1,7 @@
 # FarmaAhorro
 
 Comparador informativo de medicamentos basado en los CSV generados por los
-scrapers de Ahumada, Cruz Verde, Salcobrand y Dr. Simi.
+scrapers de Ahumada, Cruz Verde, Salcobrand, Dr. Simi y Farmacia Municipal de Iquique.
 
 ## Funcionalidades
 
@@ -50,7 +50,7 @@ La URL predeterminada del backend es `http://localhost:8000`. Para cambiarla:
 localStorage.setItem('farma_api', 'https://tu-api.example.com')
 ```
 
-Sin backend, la página consulta el catálogo JSON generado desde los cuatro CSV.
+Sin backend, la página consulta el catálogo JSON generado desde todos los CSV configurados.
 
 ## Netlify
 

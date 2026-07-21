@@ -10,6 +10,7 @@ CSV_SOURCES = {
     "Cruz Verde": SCRAPER_DIR / "CruzVerde" / "cruzverde_productos.csv",
     "Salcobrand": SCRAPER_DIR / "Salcobrand" / "salcobrand_productos.csv",
     "Dr. Simi": SCRAPER_DIR / "DrSimi" / "drsimi_productos.csv",
+    "Farmacia Municipal Iquique": SCRAPER_DIR / "IquiqueMunicipal" / "iqmuni_productos.csv",
 }
 
 DEFAULT_SHIPPING_COSTS = {
@@ -17,4 +18,5 @@ DEFAULT_SHIPPING_COSTS = {
     "Cruz Verde": 3990,
     "Salcobrand": 3990,
     "Dr. Simi": 3990,
+    "Farmacia Municipal Iquique": 0,
 }
