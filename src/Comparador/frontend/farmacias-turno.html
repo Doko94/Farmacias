@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="turnos.css">
+  <link rel="stylesheet" href="review-fixes.css">
 </head>
 <body>
   <header class="nav-wrap">
@@ -38,7 +39,7 @@
       <div class="turno-filters">
         <label>Región<select id="turno-region"><option value="">Todas las regiones</option></select></label>
         <label>Comuna<select id="turno-commune"><option value="">Todas las comunas</option></select></label>
-        <label>Buscar<input id="turno-search" type="search" placeholder="Nombre o dirección"></label>
+        <label>Buscar<input id="turno-search" type="search" maxlength="120" placeholder="Nombre, dirección o comuna"></label>
         <button id="use-location" class="button location-button" type="button">⌖ Usar mi ubicación</button>
       </div>
       <div class="turno-type-filter" role="group" aria-label="Tipo de farmacia">

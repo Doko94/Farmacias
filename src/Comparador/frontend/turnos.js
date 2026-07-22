@@ -19,6 +19,9 @@ const REGION_BOUNDS = {
   'Aysén':{south:-49.3,north:-43.5,west:-76,east:-71.5},
   'Magallanes':{south:-56,north:-48.5,west:-76,east:-66}
 };
+const KNOWN_COMMUNES = {
+  Metropolitana: ['Santiago','Cerrillos','Cerro Navia','Conchalí','El Bosque','Estación Central','Huechuraba','Independencia','La Cisterna','La Florida','La Granja','La Pintana','La Reina','Las Condes','Lo Barnechea','Lo Espejo','Lo Prado','Macul','Maipú','Ñuñoa','Pedro Aguirre Cerda','Peñalolén','Providencia','Pudahuel','Quilicura','Quinta Normal','Recoleta','Renca','San Joaquín','San Miguel','San Ramón','Vitacura','Puente Alto','San Bernardo']
+};
 let pharmacies=[]; let filtered=[]; let userPosition=null; let userMarker=null; let markers=[]; let typeFilter='turno'; let loadedMode='duty';
 
 const map=L.map('turno-map',{zoomControl:true}).setView([-33.45,-70.66],5);
@@ -62,7 +65,8 @@ function setOptions(select,values,placeholder) {
 }
 function updateCommunes() {
   const region=$('#turno-region').value;
-  setOptions($('#turno-commune'),pharmacies.filter(item=>!region||regionName(item)===region).map(item=>item.commune),'Todas las comunas');
+  const informed=pharmacies.filter(item=>!region||regionName(item)===region).map(item=>item.commune);
+  setOptions($('#turno-commune'),[...(KNOWN_COMMUNES[region]||[]),...informed],'Todas las comunas');
 }
 function clearMarkers() { markers.forEach(marker=>map.removeLayer(marker)); markers=[]; }
 function fitVisibleMarkers() {
@@ -95,7 +99,7 @@ function createCard(item) {
 }
 function render() {
   const region=$('#turno-region').value; const commune=$('#turno-commune').value; const search=normalize($('#turno-search').value);
-  filtered=pharmacies.filter(item=>(typeFilter==='todas'||typeFilter==='urgencia'&&isUrgency(item)||typeFilter==='turno'&&!isUrgency(item))&&(!region||regionName(item)===region)&&(!commune||item.commune===commune)&&(!search||normalize(`${item.name} ${item.address}`).includes(search)));
+  filtered=pharmacies.filter(item=>(typeFilter==='todas'||typeFilter==='urgencia'&&isUrgency(item)||typeFilter==='turno'&&!isUrgency(item))&&(!region||regionName(item)===region)&&(!commune||normalize(item.commune)===normalize(commune))&&(!search||normalize(`${item.name} ${item.address} ${item.commune} ${regionName(item)}`).includes(search)));
   if(userPosition) filtered.sort((a,b)=>(validCoordinates(a)?distanceKm(userPosition,a):Infinity)-(validCoordinates(b)?distanceKm(userPosition,b):Infinity));
   $('#turno-count').textContent=new Intl.NumberFormat('es-CL').format(filtered.length);
   const container=$('#turno-results'); container.innerHTML=''; clearMarkers();
@@ -107,7 +111,15 @@ function render() {
     }
   });
   $('#turno-status').hidden=filtered.length>0;
-  if(!filtered.length){$('#turno-status').hidden=false;$('#turno-status').textContent='No hay farmacias que coincidan con los filtros seleccionados.';}
+  if(!filtered.length){
+    $('#turno-status').hidden=false;
+    const place=commune||$('#turno-search').value.trim();
+    if(typeFilter!=='todas'&&place){
+      const safePlace=String(place).replace(/[<>&]/g,'');
+      $('#turno-status').innerHTML=`No hay una farmacia ${typeFilter==='urgencia'?'de urgencia 24 horas':'de turno'} informada hoy para <b>${safePlace}</b>. La comuna sí puede tener farmacias con horario habitual. <button id="show-all-from-empty" type="button">Ver todas las farmacias</button>`;
+      $('#show-all-from-empty').addEventListener('click',()=>document.querySelector('.turno-type-filter button[data-type="todas"]').click());
+    }else $('#turno-status').textContent='No hay farmacias que coincidan con los filtros seleccionados.';
+  }
   fitVisibleMarkers();
 }
 async function loadRegion(region='Tarapacá',mode=typeFilter==='todas'?'all':'duty') {

@@ -1,0 +1,31 @@
+/* Ajustes derivados de pruebas de límites y contenido no confiable. */
+.hero-card {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.hero-card p,
+.hero-card strong,
+.metric-card strong,
+.metric-card p {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.search-box input,
+.alert-form input {
+  min-width: 0;
+}
+
+.turno-status button {
+  display: block;
+  margin: 12px auto 0;
+  padding: 9px 13px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--brand-gradient);
+  color: #fff;
+  font-weight: 800;
+  cursor: pointer;
+}

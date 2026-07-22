@@ -452,8 +452,19 @@ $('#demo-optimize').addEventListener('click', async ()=>{
   }
 });
 
+const validAlertEmail=(value)=>{
+  if(value.length>254||/[\r\n\s]/.test(value))return false;
+  const parts=value.split('@');
+  return parts.length===2&&parts[0].length>0&&parts[0].length<=64&&parts[1].length<=253&&parts[1].includes('.')&&!parts[1].startsWith('.')&&!parts[1].endsWith('.');
+};
+
 $('#alert-form').addEventListener('submit',async(event)=>{
-  event.preventDefault(); const {region,commune}=locationValue(); const body={email:$('#alert-email').value,query:$('#alert-query').value,target_price:null,region,commune};
+  event.preventDefault();
+  const email=$('#alert-email').value.trim(); const query=$('#alert-query').value.trim();
+  if(!validAlertEmail(email)){$('#alert-message').textContent='Ingresa un correo válido de hasta 254 caracteres.';$('#alert-email').focus();return;}
+  const products=await loadStaticCatalog().catch(()=>[]);
+  if(!products.some(item=>normalizeText(item.name)===normalizeText(query))){$('#alert-message').textContent='Selecciona un producto desde las sugerencias del catálogo.';$('#alert-query').focus();return;}
+  const {region,commune}=locationValue(); const body={email,query,target_price:null,region,commune};
   try { await api('/api/alerts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); $('#alert-message').textContent='Alerta creada. Te avisaremos cuando detectemos una baja frente al precio anterior.'; }
   catch { $('#alert-message').textContent='Alerta guardada en este dispositivo. Conecta la API para activar el envío de notificaciones.'; localStorage.setItem('farma_demo_alert',JSON.stringify(body)); }
 });

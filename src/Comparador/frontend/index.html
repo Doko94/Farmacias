@@ -11,6 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="best-result.css">
+  <link rel="stylesheet" href="review-fixes.css">
 </head>
 <body>
   <header class="nav-wrap">
@@ -37,7 +38,7 @@
           <p>Compara medicamentos, calcula tu gasto mensual y optimiza una receta completa entre distintas farmacias.</p>
           <form id="search-form" class="search-box">
             <span aria-hidden="true">⌕</span>
-            <input id="search-input" required minlength="2" placeholder="Ej: paracetamol 500 mg" autocomplete="off">
+            <input id="search-input" required minlength="2" maxlength="180" placeholder="Ej: paracetamol 500 mg" autocomplete="off">
             <button type="submit">Comparar precios</button>
           </form>
           <div class="location-row">
@@ -112,8 +113,8 @@
     <section id="alertas" class="section dark-section"><div class="container split-grid">
       <div><span class="kicker light">ALERTAS DE PRECIO</span><h2>Que el precio baje antes que se te acabe.</h2><p>Selecciona un producto del catálogo y te avisaremos cuando su nuevo precio sea menor que el registrado anteriormente.</p></div>
       <form id="alert-form" class="alert-form">
-        <input id="alert-query" list="alert-products" required autocomplete="off" placeholder="Busca un medicamento o producto"><datalist id="alert-products"></datalist>
-        <input id="alert-email" type="email" required placeholder="tu@email.cl"><button class="button accent" type="submit">Avisarme si baja de precio</button>
+        <input id="alert-query" list="alert-products" required minlength="2" maxlength="180" autocomplete="off" placeholder="Busca un medicamento o producto"><datalist id="alert-products"></datalist>
+        <input id="alert-email" type="email" required maxlength="254" autocomplete="email" placeholder="tu@email.cl"><button class="button accent" type="submit">Avisarme si baja de precio</button>
         <div id="alert-message" class="form-message"></div>
       </form>
     </div></section>
