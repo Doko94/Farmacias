@@ -35,6 +35,7 @@ IMPORTANTE - lo unico que debes CONFIRMAR con DevTools (Network) una vez:
 from __future__ import annotations
 
 import asyncio
+import argparse
 import csv
 import html as html_lib
 import json
@@ -73,6 +74,13 @@ except ImportError:
 # Configuracion base
 # ------------------------------------------------------------------
 BASE_URL = "https://www.farmaciasahumada.cl"
+
+# Perfil conservador optimizado. Todos estos valores se pueden sobrescribir
+# desde la linea de comandos sin volver a editar el archivo.
+DEFAULT_CONCURRENCY = 8
+DEFAULT_MIN_DELAY = 0.25
+DEFAULT_MAX_DELAY = 0.75
+DEFAULT_PAGE_SIZE = 96
 
 # Ubicaciones habilitadas para esta ejecucion.
 TARGET_LOCATIONS = {
@@ -174,6 +182,19 @@ def all_category_paths(include_parents: bool = True) -> list[str]:
             paths.append(parent)
         paths.extend(children)
     return paths
+
+
+def category_paths(mode: str) -> list[str]:
+    """Selecciona categorias evitando duplicar el catalogo innecesariamente."""
+    if mode == "parents":
+        # Cada categoria padre contiene sus productos descendientes. Este modo
+        # reduce 68 recorridos a 11 y mantiene un respaldo por familia principal.
+        return list(CATEGORY_TREE)
+    if mode == "leaves":
+        return all_category_paths(include_parents=False)
+    if mode == "all":
+        return all_category_paths(include_parents=True)
+    raise ValueError(f"Modo de categorias no soportado: {mode}")
 
 
 # ------------------------------------------------------------------
@@ -728,12 +749,24 @@ def format_duration(seconds: float) -> str:
 # ------------------------------------------------------------------
 # Demo / entrypoint
 # ------------------------------------------------------------------
-async def run_scraping():
+async def run_scraping(args: argparse.Namespace):
     # Aviso de SSL: si estas en la red de NTT y esto sale False, instala
     # truststore (pip install truststore) o el error SSL volvera.
     print(f"[INFO] truststore activo (usa CA de Windows): {_TRUSTSTORE_OK}")
 
-    async with AhumadaScraper(concurrency=4, page_size=24) as scraper:
+    print(
+        "[INFO] Perfil de rendimiento: "
+        f"concurrencia={args.concurrency}, demora={args.min_delay:.2f}-"
+        f"{args.max_delay:.2f}s, pagina={args.page_size}, "
+        f"categorias={args.category_mode}"
+    )
+
+    async with AhumadaScraper(
+        concurrency=args.concurrency,
+        min_delay=args.min_delay,
+        max_delay=args.max_delay,
+        page_size=args.page_size,
+    ) as scraper:
         available_locations = await scraper.discover_locations()
         locations = [
             location for location in available_locations
@@ -760,8 +793,8 @@ async def run_scraping():
         )
         save_csv([], output_path)
         successful_locations = 0
-        category_paths = all_category_paths(include_parents=True)
-        print(f"[INFO] Categorias del menu a procesar: {len(category_paths)}")
+        paths_to_crawl = category_paths(args.category_mode)
+        print(f"[INFO] Categorias del menu a procesar: {len(paths_to_crawl)}")
 
         for index, (region, comuna) in enumerate(locations, start=1):
             location_started = time.perf_counter()
@@ -772,7 +805,7 @@ async def run_scraping():
                     continue
 
                 try:
-                    captured_products = await scraper.crawl_many(category_paths)
+                    captured_products = await scraper.crawl_many(paths_to_crawl)
 
                     # Un producto puede aparecer en categorias padre e hijas.
                     # Se conserva una fila por PID para cada region/comuna.
@@ -805,14 +838,63 @@ async def run_scraping():
         )
 
 
-async def main():
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Scraper optimizado del catalogo de Farmacias Ahumada."
+    )
+    parser.add_argument(
+        "--concurrency",
+        type=int,
+        default=DEFAULT_CONCURRENCY,
+        help=f"Peticiones simultaneas (predeterminado: {DEFAULT_CONCURRENCY}).",
+    )
+    parser.add_argument(
+        "--min-delay",
+        type=float,
+        default=DEFAULT_MIN_DELAY,
+        help=f"Demora minima por solicitud (predeterminado: {DEFAULT_MIN_DELAY}).",
+    )
+    parser.add_argument(
+        "--max-delay",
+        type=float,
+        default=DEFAULT_MAX_DELAY,
+        help=f"Demora maxima por solicitud (predeterminado: {DEFAULT_MAX_DELAY}).",
+    )
+    parser.add_argument(
+        "--page-size",
+        type=int,
+        default=DEFAULT_PAGE_SIZE,
+        help=f"Productos solicitados por pagina (predeterminado: {DEFAULT_PAGE_SIZE}).",
+    )
+    parser.add_argument(
+        "--category-mode",
+        choices=("parents", "leaves", "all"),
+        default="parents",
+        help=(
+            "parents procesa las familias principales; leaves solo categorias "
+            "finales; all conserva el recorrido antiguo completo."
+        ),
+    )
+    args = parser.parse_args()
+    if args.concurrency < 1:
+        parser.error("--concurrency debe ser mayor que cero")
+    if args.page_size < 1:
+        parser.error("--page-size debe ser mayor que cero")
+    if args.min_delay < 0 or args.max_delay < 0:
+        parser.error("las demoras no pueden ser negativas")
+    if args.min_delay > args.max_delay:
+        parser.error("--min-delay no puede superar --max-delay")
+    return args
+
+
+async def main(args: argparse.Namespace):
     execution_started = time.perf_counter()
     try:
-        await run_scraping()
+        await run_scraping(args)
     finally:
         total_elapsed = time.perf_counter() - execution_started
         print(f"[TIEMPO TOTAL] {format_duration(total_elapsed)}")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(main(parse_args()))
