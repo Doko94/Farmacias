@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+import re
 
 from fastapi import FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -42,9 +43,21 @@ def reload_catalog() -> dict:
 
 @app.get("/api/search")
 def search(
-    q: str = Query(min_length=2), region: str = "Tarapaca",
+    q: str = Query(min_length=2, max_length=100), region: str = "Tarapaca",
     commune: str = "Iquique", limit: int = Query(default=40, ge=1, le=200),
 ) -> dict:
+    q = " ".join(q.split()).strip()
+    if len(re.findall(r"[^\W\d_]", q, flags=re.UNICODE)) < 2:
+        raise HTTPException(status_code=422, detail="La búsqueda debe incluir al menos dos letras")
+    if any(
+        not (character.isalnum() or character.isspace() or character in ".,/%()+-")
+        for character in q
+    ):
+        raise HTTPException(status_code=422, detail="La búsqueda contiene caracteres no permitidos")
+    if re.search(r"(.)\1{7,}", q, flags=re.IGNORECASE):
+        raise HTTPException(status_code=422, detail="La búsqueda contiene repeticiones excesivas")
+    if any(len(token) > 40 for token in q.split()):
+        raise HTTPException(status_code=422, detail="La búsqueda contiene una palabra demasiado larga")
     results = catalog.search(q, region, commune, limit)
     return {
         "query": q,

@@ -38,9 +38,10 @@
           <p>Compara medicamentos, calcula tu gasto mensual y optimiza una receta completa entre distintas farmacias.</p>
           <form id="search-form" class="search-box">
             <span aria-hidden="true">⌕</span>
-            <input id="search-input" required minlength="2" maxlength="180" placeholder="Ej: paracetamol 500 mg" autocomplete="off">
+            <input id="search-input" required minlength="2" maxlength="100" inputmode="search" spellcheck="false" aria-describedby="search-validation" placeholder="Ej: paracetamol 500 mg" autocomplete="off">
             <button type="submit">Comparar precios</button>
           </form>
+          <small id="search-validation" class="search-validation" role="alert" aria-live="polite"></small>
           <div class="location-row">
             <label>Región
               <select id="region-select">
@@ -112,10 +113,10 @@
 
     <section id="alertas" class="section dark-section"><div class="container split-grid">
       <div><span class="kicker light">ALERTAS DE PRECIO</span><h2>Que el precio baje antes que se te acabe.</h2><p>Selecciona un producto del catálogo y te avisaremos cuando su nuevo precio sea menor que el registrado anteriormente.</p></div>
-      <form id="alert-form" class="alert-form">
-        <input id="alert-query" list="alert-products" required minlength="2" maxlength="180" autocomplete="off" placeholder="Busca un medicamento o producto"><datalist id="alert-products"></datalist>
-        <input id="alert-email" type="email" required maxlength="254" autocomplete="email" placeholder="tu@email.cl"><button class="button accent" type="submit">Avisarme si baja de precio</button>
-        <div id="alert-message" class="form-message"></div>
+      <form id="alert-form" class="alert-form" novalidate>
+        <label><span>Medicamento o producto</span><input id="alert-query" list="alert-products" required minlength="2" maxlength="120" autocomplete="off" spellcheck="false" aria-describedby="alert-message" placeholder="Busca y selecciona un producto"><datalist id="alert-products"></datalist></label>
+        <label><span>Correo para recibir el aviso</span><input id="alert-email" type="email" required minlength="6" maxlength="120" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" aria-describedby="alert-message" placeholder="tu@email.cl"></label><button class="button accent" type="submit">Avisarme si baja de precio</button>
+        <div id="alert-message" class="form-message" role="alert" aria-live="polite"></div>
       </form>
     </div></section>
 
@@ -128,7 +129,7 @@
         <a class="feature-card-link" href="historial.html"><article><span>↗</span><h3>Historial de precios</h3><p>Observa tendencias y distingue ofertas reales.</p><b>Ver historial →</b></article></a>
         <a class="feature-card-link" href="bioequivalentes.html"><article><span>≋</span><h3>Bioequivalentes</h3><p>Compara alternativas informadas y ahorro potencial.</p><b>Comparar alternativas →</b></article></a>
         <a class="feature-card-link" href="dashboard.html"><article><span>⌁</span><h3>Analítica avanzada</h3><p>Dashboard de precios, ahorro, cobertura y stock.</p><b>Ver dashboard →</b></article></a>
-        <a id="api" class="feature-card-link" href="desarrolladores.html"><article><span>{ }</span><h3>API para terceros</h3><p>Integra búsqueda y optimización en otras aplicaciones.</p><b>Ver documentación →</b></article></a>
+        <div id="api" class="feature-card-link feature-card-restricted" aria-label="API para terceros: acceso bajo solicitud"><article><span>{ }</span><div class="access-seal">ACCESO BAJO SOLICITUD</div><h3>API para terceros</h3><p>Integraciones disponibles previa evaluación y habilitación administrativa.</p><b>Contacta al administrador</b></article></div>
       </div>
     </section>
   </main>

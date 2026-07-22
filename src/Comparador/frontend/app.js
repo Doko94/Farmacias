@@ -1,6 +1,18 @@
 const API_BASE = localStorage.getItem('farma_api') || (['localhost','127.0.0.1'].includes(location.hostname) ? 'http://localhost:8000' : '');
 const $ = (selector) => document.querySelector(selector);
 const money = (value) => new Intl.NumberFormat('es-CL',{style:'currency',currency:'CLP',maximumFractionDigits:0}).format(value || 0);
+const escapeHtml=(value='')=>String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+const validateSearchQuery=(rawValue)=>{
+  const value=String(rawValue||'').normalize('NFC').replace(/\s+/g,' ').trim();
+  if(value.length<2)return {error:'Escribe al menos 2 caracteres.'};
+  if(value.length>100)return {error:'La búsqueda permite un máximo de 100 caracteres.'};
+  if(!/[\p{L}]/u.test(value))return {error:'Incluye el nombre, marca o principio activo; no uses solamente números.'};
+  if((value.match(/[\p{L}]/gu)||[]).length<2)return {error:'Incluye al menos 2 letras del medicamento.'};
+  if(/[^\p{L}\p{N}\s.,/%()+\-]/u.test(value))return {error:'Usa solo letras, números y símbolos habituales de dosis: . , / % ( ) + -'};
+  if(/(.)\1{7,}/iu.test(value))return {error:'Evita repetir el mismo carácter más de 7 veces.'};
+  if(value.split(' ').some(token=>token.length>40))return {error:'Una palabra no puede superar los 40 caracteres.'};
+  return {value};
+};
 const COMMUNES_BY_REGION = {
   Tarapaca: ['Iquique'],
   'Arica y Parinacota': ['Arica'],
@@ -182,15 +194,15 @@ function renderResults(products, source='api') {
         ?' pharmacy-title--municipal'
         :'';
     const logoOnlyPharmacies=new Set(['Ahumada','Farmacia Municipal Iquique']);
-    const pharmacyName=logoOnlyPharmacies.has(product.pharmacy)?'':`<span>${product.pharmacy}</span>`;
-    const pharmacyTitle=`<span class="pharmacy pharmacy-title${pharmacyClass}">${logo?`<img src="${logo}" alt="Logo ${product.pharmacy}" loading="lazy">`:''}${pharmacyName}</span>`;
+    const pharmacyName=logoOnlyPharmacies.has(product.pharmacy)?'':`<span>${escapeHtml(product.pharmacy)}</span>`;
+    const pharmacyTitle=`<span class="pharmacy pharmacy-title${pharmacyClass}">${logo?`<img src="${logo}" alt="Logo ${escapeHtml(product.pharmacy)}" loading="lazy">`:''}${pharmacyName}</span>`;
     const pharmacyNotice=product.pharmacy==='Farmacia Municipal Iquique'?'<small class="municipal-notice">Beneficio para personas inscritas con domicilio acreditado en Iquique.</small>':'';
     const badges=`<div class="product-badges">${product.bioequivalent?'<span class="product-badge bioequivalent">B Bioequivalente</span>':''}${product.fonasa_price?'<span class="product-badge fonasa">Fonasa</span>':''}</div>`;
     const fonasaPrice=product.fonasa_price?`<div class="fonasa-price"><span>Precio Fonasa</span><strong>${money(product.fonasa_price)}</strong></div>`:'';
     const stockWarning=product.available===false||Number(product.stock_quantity)===0
       ?'<div class="stock-warning" role="note"><span aria-hidden="true">⚠</span><p><b>Disponibilidad por confirmar</b>Revisa directamente con la farmacia antes de acudir.</p></div>'
       :'';
-    card.innerHTML=`${isBest?'<span class="best-badge"><i>✓</i> Mejor opción</span>':''}${pharmacyTitle}${pharmacyNotice}<h3>${product.name}</h3><span>${product.brand||'Marca no informada'}</span>${product.active_ingredient?`<small><b>Principio activo:</b> ${product.active_ingredient}</small>`:''}${badges}${fonasaPrice}<div><span class="price">${money(product.price)}</span> ${product.list_price?`<span class="old">${money(product.list_price)}</span>`:''}</div><div class="result-meta"><span class="stock-status ${product.available?'in-stock':'out-stock'}">${product.available?'●':'○'} ${stock}</span><span>${commune}, ${region}</span><span>Actualizado: ${formatDate(product.captured_at)}</span></div>${stockWarning}<small>${isBest?'Coincidencia exacta · Menor precio disponible':'Coincidencia exacta · Comparado'}</small>${action}`;
+    card.innerHTML=`${isBest?'<span class="best-badge"><i>✓</i> Mejor opción</span>':''}${pharmacyTitle}${pharmacyNotice}<h3>${escapeHtml(product.name)}</h3><span>${escapeHtml(product.brand||'Marca no informada')}</span>${product.active_ingredient?`<small><b>Principio activo:</b> ${escapeHtml(product.active_ingredient)}</small>`:''}${badges}${fonasaPrice}<div><span class="price">${money(product.price)}</span> ${product.list_price?`<span class="old">${money(product.list_price)}</span>`:''}</div><div class="result-meta"><span class="stock-status ${product.available?'in-stock':'out-stock'}">${product.available?'●':'○'} ${escapeHtml(stock)}</span><span>${escapeHtml(commune)}, ${escapeHtml(region)}</span><span>Actualizado: ${escapeHtml(formatDate(product.captured_at))}</span></div>${stockWarning}<small>${isBest?'Coincidencia exacta · Menor precio disponible':'Coincidencia exacta · Comparado'}</small>${action}`;
     container.appendChild(card);
   });
   if(source==='static') container.insertAdjacentHTML('beforebegin','<p id="demo-note" class="tool-output"><b>Información de precios:</b> última actualización disponible para la ubicación seleccionada.</p>');
@@ -201,11 +213,15 @@ function renderApiUnavailable(query) {
   document.querySelector('#demo-note')?.remove();
   const status=$('#search-status');
   status.hidden=false;
-  status.innerHTML=`<div class="empty-icon">!</div><h3>No fue posible cargar el catálogo</h3><p>La información de precios no está disponible temporalmente para “${query}”. Intenta nuevamente más tarde.</p>`;
+  status.innerHTML=`<div class="empty-icon">!</div><h3>No fue posible cargar el catálogo</h3><p>La información de precios no está disponible temporalmente para “${escapeHtml(query)}”. Intenta nuevamente más tarde.</p>`;
 }
 
 $('#search-form').addEventListener('submit', async (event)=>{
-  event.preventDefault(); const q=$('#search-input').value.trim(); const {region,commune}=locationValue();
+  event.preventDefault();
+  const validation=validateSearchQuery($('#search-input').value); const validationMessage=$('#search-validation');
+  if(validation.error){validationMessage.textContent=validation.error;$('#search-input').setAttribute('aria-invalid','true');$('#search-input').focus();return;}
+  validationMessage.textContent=''; $('#search-input').removeAttribute('aria-invalid'); $('#search-input').value=validation.value;
+  const q=validation.value; const {region,commune}=locationValue();
   document.querySelector('#comparar').scrollIntoView({behavior:'smooth',block:'start'});
   $('#clear-results').hidden=false;
   $('#search-status').hidden=false; $('#search-status').innerHTML='<h3>Comparando farmacias…</h3>';
@@ -216,6 +232,14 @@ $('#search-form').addEventListener('submit', async (event)=>{
   }
 });
 
+$('#search-input').addEventListener('input',()=>{
+  const input=$('#search-input');
+  if(input.hasAttribute('aria-invalid')){
+    input.removeAttribute('aria-invalid');
+    $('#search-validation').textContent='';
+  }
+});
+
 $('#clear-results').addEventListener('click',()=>{
   $('#results').innerHTML='';
   document.querySelector('#demo-note')?.remove();
@@ -223,6 +247,8 @@ $('#clear-results').addEventListener('click',()=>{
   status.hidden=false;
   status.innerHTML='<div class="empty-icon">⌕</div><h3>Busca tu primer medicamento</h3><p>Escribe un nombre, marca o principio activo arriba.</p>';
   $('#search-input').value='';
+  $('#search-validation').textContent='';
+  $('#search-input').removeAttribute('aria-invalid');
   $('#clear-results').hidden=true;
   updateHeroCoverage();
   $('#search-input').focus({preventScroll:true});
@@ -348,7 +374,7 @@ $('#treatment-form').addEventListener('submit', async (event)=>{
 });
 
 let recipeQueries=[];
-const recipeEscape=(value='')=>value.replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+const recipeEscape=escapeHtml;
 function recipeSearchQuery(value='') {
   const cleaned=value.replace(/^\s*(?:rp\/?\s*)?(?:\d+\s*[.)-]?\s*)?/i,'').replace(/\s+/g,' ').trim();
   const dose=cleaned.match(/\b(\d{1,3}(?:[.\s]\d{3})+|\d+(?:[.,]\d+)?)\s*(mg|mcg|ug|g|ml|ui|iu|u|%)\b/i);
@@ -453,21 +479,42 @@ $('#demo-optimize').addEventListener('click', async ()=>{
 });
 
 const validAlertEmail=(value)=>{
-  if(value.length>254||/[\r\n\s]/.test(value))return false;
+  if(value.length<6||value.length>120||/[\r\n\s<>()[\]{}\\,;:\"\x00-\x1f\x7f]/.test(value))return false;
   const parts=value.split('@');
-  return parts.length===2&&parts[0].length>0&&parts[0].length<=64&&parts[1].length<=253&&parts[1].includes('.')&&!parts[1].startsWith('.')&&!parts[1].endsWith('.');
+  if(parts.length!==2)return false;
+  const [local,domain]=parts;
+  if(!local||local.length>64||domain.length>63||!domain.includes('.')||domain.startsWith('.')||domain.endsWith('.'))return false;
+  if(local.startsWith('.')||local.endsWith('.')||local.includes('..')||domain.includes('..'))return false;
+  if(!/^[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+$/i.test(local))return false;
+  return domain.split('.').every(label=>/^[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?$/i.test(label));
+};
+
+const setAlertError=(input,message)=>{
+  $('#alert-message').textContent=message;
+  ['#alert-query','#alert-email'].forEach(selector=>$(selector).removeAttribute('aria-invalid'));
+  if(input){input.setAttribute('aria-invalid','true');input.focus();}
 };
 
 $('#alert-form').addEventListener('submit',async(event)=>{
   event.preventDefault();
-  const email=$('#alert-email').value.trim(); const query=$('#alert-query').value.trim();
-  if(!validAlertEmail(email)){$('#alert-message').textContent='Ingresa un correo válido de hasta 254 caracteres.';$('#alert-email').focus();return;}
+  const email=$('#alert-email').value.normalize('NFC').trim().toLowerCase();
+  const query=$('#alert-query').value.normalize('NFC').replace(/\s+/g,' ').trim();
+  if(query.length<2||query.length>120){setAlertError($('#alert-query'),'Selecciona un producto de entre 2 y 120 caracteres.');return;}
+  if(!/[\p{L}]{2}/u.test(query)||/(.)\1{7,}/iu.test(query)||query.split(' ').some(token=>token.length>50)){setAlertError($('#alert-query'),'Selecciona una sugerencia válida del catálogo; evita caracteres o repeticiones inusuales.');return;}
+  if(!validAlertEmail(email)){setAlertError($('#alert-email'),'Ingresa un correo válido de hasta 120 caracteres (por ejemplo, nombre@dominio.cl).');return;}
   const products=await loadStaticCatalog().catch(()=>[]);
-  if(!products.some(item=>normalizeText(item.name)===normalizeText(query))){$('#alert-message').textContent='Selecciona un producto desde las sugerencias del catálogo.';$('#alert-query').focus();return;}
+  if(!products.some(item=>normalizeText(item.name)===normalizeText(query))){setAlertError($('#alert-query'),'Selecciona un producto desde las sugerencias reales del catálogo.');return;}
+  $('#alert-query').value=query; $('#alert-email').value=email;
+  ['#alert-query','#alert-email'].forEach(selector=>$(selector).removeAttribute('aria-invalid'));
   const {region,commune}=locationValue(); const body={email,query,target_price:null,region,commune};
   try { await api('/api/alerts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); $('#alert-message').textContent='Alerta creada. Te avisaremos cuando detectemos una baja frente al precio anterior.'; }
   catch { $('#alert-message').textContent='Alerta guardada en este dispositivo. Conecta la API para activar el envío de notificaciones.'; localStorage.setItem('farma_demo_alert',JSON.stringify(body)); }
 });
+
+['#alert-query','#alert-email'].forEach(selector=>$(selector).addEventListener('input',()=>{
+  $(selector).removeAttribute('aria-invalid');
+  $('#alert-message').textContent='';
+}));
 
 async function refreshAlertProducts() {
   const list=$('#alert-products');
