@@ -309,6 +309,60 @@ function renderSelectedPharmacyPlan(plans, medicineCount, selectedPharmacy) {
     <p class="recipe-plan-disclaimer">Total informativo para una unidad de cada producto. Confirma presentación, receta, stock y precio final directamente con la farmacia.</p>`;
 }
 
+function buildMultiPharmacyPlan(reviewed, selectedPharmacies) {
+  const selected = new Set(selectedPharmacies);
+  const lines = reviewed.map((item) => {
+    const eligible = item.offers
+      .filter((offer) => selected.has(offer.pharmacy))
+      .sort((left, right) => left.price - right.price);
+    return { query: item.query, offer: eligible[0] || null, alternatives: item.offers };
+  });
+  const matched = lines.filter((line) => line.offer);
+  const groups = new Map();
+  matched.forEach((line) => {
+    if (!groups.has(line.offer.pharmacy)) groups.set(line.offer.pharmacy, []);
+    groups.get(line.offer.pharmacy).push(line);
+  });
+  return {
+    lines,
+    groups,
+    coverage: matched.length,
+    total: matched.reduce((sum, line) => sum + Number(line.offer.price || 0), 0),
+  };
+}
+
+function renderMultiPharmacyPlan(reviewed, selectedPharmacies) {
+  const detail = $('#recipe-plan-detail');
+  if (!detail) return;
+  if (!selectedPharmacies.length) {
+    detail.innerHTML = '<div class="recipe-plan-alert">Selecciona al menos una farmacia para calcular la compra combinada.</div>';
+    return;
+  }
+  const plan = buildMultiPharmacyPlan(reviewed, selectedPharmacies);
+  const missing = reviewed.length - plan.coverage;
+  const pharmacyCount = plan.groups.size;
+  const groupsHtml = [...plan.groups.entries()].map(([pharmacy, lines]) => {
+    const subtotal = lines.reduce((sum, line) => sum + Number(line.offer.price || 0), 0);
+    return `<section class="recipe-pharmacy-group">
+      <header><div><span>Comprar en</span><h4>${escapeHtml(pharmacy)}</h4></div><div><span>Subtotal</span><strong>${money(subtotal)}</strong></div></header>
+      <ul class="recipe-purchase-list">${lines.map(recipeLineHtml).join('')}</ul>
+    </section>`;
+  }).join('');
+  const unresolved = plan.lines.filter((line) => !line.offer);
+  detail.innerHTML = `<div class="recipe-plan-metrics">
+      <div><span>${missing ? 'Subtotal combinado' : 'Total mínimo estimado'}</span><strong>${money(plan.total)}</strong></div>
+      <div><span>Cobertura y recorrido</span><strong>${plan.coverage} de ${reviewed.length}</strong><small>${pharmacyCount} farmacia${pharmacyCount === 1 ? '' : 's'} para completar esta selección</small></div>
+    </div>
+    ${missing ? `<div class="recipe-plan-alert">La selección no cubre ${missing} producto${missing === 1 ? '' : 's'}. Activa otra farmacia o corrige los productos sin coincidencia.</div>` : '<div class="recipe-plan-success">Compra completa: cada producto fue asignado a la alternativa de menor precio entre las farmacias activadas.</div>'}
+    <div class="recipe-pharmacy-groups">${groupsHtml}</div>
+    ${unresolved.length ? `<section class="recipe-unresolved-group"><h4>Productos pendientes</h4><ul class="recipe-purchase-list">${unresolved.map(recipeLineHtml).join('')}</ul></section>` : ''}
+    <p class="recipe-plan-disclaimer">La optimización considera una unidad de cada producto y no incluye costo de traslado o despacho. Confirma stock, receta y precio final antes de comprar.</p>`;
+}
+
+function activeMultiPharmacies() {
+  return [...document.querySelectorAll('.recipe-pharmacy-check:checked')].map((input) => input.value);
+}
+
 async function prepareImage(file) {
   const bitmap = await createImageBitmap(file);
   const scale = Math.min(4, Math.max(2, 1800 / bitmap.width));
@@ -388,19 +442,64 @@ function optimizeReviewedMedicines() {
   }
   const bestCoverage = plans[0].coverage;
   const completeCount = plans.filter((plan) => plan.coverage === medicines.length).length;
+  const allPharmacies = [...new Set(
+    reviewed.flatMap((item) => item.offers.map((offer) => offer.pharmacy)).filter(Boolean),
+  )].sort((left, right) => left.localeCompare(right, 'es'));
   results.innerHTML = `<section class="recipe-purchase-result">
     <div class="recipe-result-heading">
       <div><span class="kicker">RESULTADO DE LA RECETA</span><h3>Elige dónde quieres comprar</h3><p>Las farmacias están ordenadas por cantidad de coincidencias y luego por precio.</p></div>
       <div class="recipe-result-summary"><strong>${bestCoverage} de ${medicines.length}</strong><span>mayor cobertura encontrada</span>${completeCount ? `<small>${completeCount} farmacia${completeCount === 1 ? '' : 's'} cubren la receta completa</small>` : '<small>Ninguna farmacia cubre todavía toda la receta</small>'}</div>
     </div>
-    <label class="recipe-pharmacy-picker">Farmacia seleccionada
-      <select id="recipe-pharmacy-select">${plans.map((plan, index) => `<option value="${escapeHtml(plan.pharmacy)}">${index === 0 ? 'Recomendada · ' : ''}${escapeHtml(plan.pharmacy)} · ${plan.coverage}/${medicines.length} coincidencias · ${money(plan.total)}</option>`).join('')}</select>
-    </label>
+    <div class="recipe-buy-modes" role="group" aria-label="Modalidad de compra">
+      <button class="recipe-mode active" type="button" data-mode="single" aria-pressed="true">
+        <span aria-hidden="true">1</span>
+        <div><b>Comprar en una farmacia</b><small>Reduce traslados. Priorizamos la farmacia con mayor cobertura y luego el menor subtotal.</small></div>
+      </button>
+      <button class="recipe-mode" type="button" data-mode="multi" aria-pressed="false">
+        <span aria-hidden="true">+</span>
+        <div><b>Combinar varias farmacias</b><small>Asigna cada producto a la alternativa de menor precio para completar la receta gastando menos.</small></div>
+      </button>
+    </div>
+    <div id="recipe-single-controls">
+      <label class="recipe-pharmacy-picker">Farmacia seleccionada
+        <select id="recipe-pharmacy-select">${plans.map((plan, index) => `<option value="${escapeHtml(plan.pharmacy)}">${index === 0 ? 'Recomendada · ' : ''}${escapeHtml(plan.pharmacy)} · ${plan.coverage}/${medicines.length} coincidencias · ${money(plan.total)}</option>`).join('')}</select>
+        <small>El resultado incluye los productos disponibles en la farmacia elegida. Los faltantes se muestran para que puedas corregirlos o agregarlos manualmente.</small>
+      </label>
+    </div>
+    <div id="recipe-multi-controls" class="recipe-multi-controls" hidden>
+      <div class="recipe-multi-description">
+        <b>Farmacias incluidas en la optimización</b>
+        <small>Selecciona las farmacias que estás dispuesto a visitar. Para cada medicamento elegiremos el menor precio disponible entre las seleccionadas y siempre mostraremos cualquier producto pendiente.</small>
+      </div>
+      <div class="recipe-pharmacy-checks">
+        ${allPharmacies.map((pharmacy) => `<label><input class="recipe-pharmacy-check" type="checkbox" value="${escapeHtml(pharmacy)}" checked><span>${escapeHtml(pharmacy)}</span></label>`).join('')}
+      </div>
+    </div>
     <div id="recipe-plan-detail"></div>
   </section>`;
   const select = $('#recipe-pharmacy-select');
   renderSelectedPharmacyPlan(plans, medicines.length, select.value);
   select.addEventListener('change', () => renderSelectedPharmacyPlan(plans, medicines.length, select.value));
+  document.querySelectorAll('.recipe-mode').forEach((button) => {
+    button.addEventListener('click', () => {
+      const mode = button.dataset.mode;
+      document.querySelectorAll('.recipe-mode').forEach((item) => {
+        const active = item === button;
+        item.classList.toggle('active', active);
+        item.setAttribute('aria-pressed', String(active));
+      });
+      $('#recipe-single-controls').hidden = mode !== 'single';
+      $('#recipe-multi-controls').hidden = mode !== 'multi';
+      if (mode === 'multi') {
+        renderMultiPharmacyPlan(reviewed, activeMultiPharmacies());
+      } else {
+        renderSelectedPharmacyPlan(plans, medicines.length, select.value);
+      }
+    });
+  });
+  document.querySelectorAll('.recipe-pharmacy-check').forEach((input) => {
+    input.addEventListener('change', () => renderMultiPharmacyPlan(reviewed, activeMultiPharmacies()));
+  });
   results.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
