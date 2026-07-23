@@ -44,6 +44,79 @@
 .planner-number[aria-invalid="true"], #planner-query[aria-invalid="true"] { border-color: #c84a4a; box-shadow: 0 0 0 3px rgba(200,74,74,.1); }
 .planner-validation { grid-column: 1/-1; min-height: 18px; color: #a53e3e; font-size: 11px; font-weight: 700; }
 
+/* Tarjetas principales de herramientas: mismo tamaño y mayor protagonismo. */
+.features .feature-grid {
+  grid-auto-rows: 1fr;
+  align-items: stretch;
+  gap: 20px;
+}
+
+.features .feature-card-link {
+  display: flex;
+  height: 100%;
+  min-width: 0;
+}
+
+.features .feature-card-link article {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  width: 100%;
+  min-height: 310px;
+  padding: 30px;
+  overflow: hidden;
+  border: 2px solid rgba(19, 167, 151, .58);
+  border-radius: 22px;
+  background: linear-gradient(155deg, #fff 65%, rgba(197, 227, 222, .3));
+  box-shadow: 0 14px 34px rgba(6, 71, 100, .09);
+  transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+}
+
+.features .feature-card-link article::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 6px;
+  background: linear-gradient(90deg, #13a797, #30b26d 55%, #47b755);
+}
+
+.features .feature-card-link article > span {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 14px;
+  border-radius: 14px;
+  background: #e5f6f2;
+  color: #0b957f;
+}
+
+.features .feature-card-link h3 { color: #064764; }
+.features .feature-card-link p { flex: 1; }
+.features .feature-card-link b { margin-top: auto; color: #087f68; }
+
+.features a.feature-card-link:hover article,
+.features a.feature-card-link:focus-visible article {
+  transform: translateY(-6px);
+  border-color: #13a797;
+  box-shadow: 0 22px 48px rgba(6, 71, 100, .16);
+}
+
+.features a.feature-card-link:focus-visible { outline: none; }
+
+.features .feature-card-restricted article {
+  min-height: 310px;
+  border: 2px dashed rgba(19, 167, 151, .62);
+  background: linear-gradient(155deg, #f5faf9, #e9f5f2);
+  box-shadow: 0 14px 34px rgba(6, 71, 100, .07);
+}
+
+@media (max-width: 600px) {
+  .features .feature-card-link article,
+  .features .feature-card-restricted article { min-height: 270px; }
+}
+
 .turno-status button {
   display: block;
   margin: 12px auto 0;
