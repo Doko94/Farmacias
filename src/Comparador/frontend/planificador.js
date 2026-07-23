@@ -56,15 +56,19 @@ function communes() {
 }
 
 function packageUnits(name) {
-  const patterns = [
-    /\b(\d+)\s*(?:comprimidos?|tabletas?|c[aá]psulas?|sobres?|ampollas?|unidades?|dosis|parches?|[oó]vulos?)\b/i,
-    /\b(?:frasco|jarabe|soluci[oó]n|suspensi[oó]n)[^\d]{0,12}(\d+(?:[.,]\d+)?)\s*ml\b/i,
-    /\b(\d+(?:[.,]\d+)?)\s*ml\b/i,
-  ];
-  for (const pattern of patterns) {
-    const match = name.match(pattern);
-    if (match) return Number(match[1].replace(',', '.'));
-  }
+  const text = String(name || '').normalize('NFC').replace(/\s+/g, ' ').trim();
+  // Una presentación explícita tiene prioridad sobre concentraciones como 80/4,5.
+  const explicit = text.match(/(?:\bx\s*|\bpor\s+)(\d+(?:[.,]\d+)?)\s*(?:dosis|ds\b|inhalaciones?|puffs?|comprimidos?|comp\b|tabletas?|cápsulas?|caps\b|sobres?|ampollas?|unidades?|parches?|óvulos?)\b/i);
+  if (explicit) return Number(explicit[1].replace(',', '.'));
+
+  // Si no aparece "x", usa la última cantidad asociada a una unidad de envase.
+  const unitPattern = /\b(\d+(?:[.,]\d+)?)\s*(?:dosis|ds\b|inhalaciones?|puffs?|comprimidos?|comp\b|tabletas?|cápsulas?|caps\b|sobres?|ampollas?|unidades?|parches?|óvulos?)\b/gi;
+  const unitMatches = [...text.matchAll(unitPattern)];
+  if (unitMatches.length) return Number(unitMatches.at(-1)[1].replace(',', '.'));
+
+  // Para líquidos, toma el volumen final del envase y no la relación de concentración mg/5 ml.
+  const volumeMatches = [...text.matchAll(/\b(\d+(?:[.,]\d+)?)\s*ml\b/gi)];
+  if (volumeMatches.length) return Number(volumeMatches.at(-1)[1].replace(',', '.'));
   return null;
 }
 
@@ -77,7 +81,7 @@ $('#planner-query').addEventListener('change', () => {
   const units = product && packageUnits(product.name);
   if (units && units <= 10000) {
     $('#planner-units-pack').value = units;
-    $('#planner-help').textContent = `Detectado desde: ${product.name}. Puedes corregirlo si el envase indica otra cantidad.`;
+    $('#planner-help').textContent = `${units.toLocaleString('es-CL')} unidades detectadas desde la presentación. Puedes corregirlo si el envase indica otra cantidad.`;
   } else {
     $('#planner-units-pack').value = '';
     $('#planner-help').textContent = 'No pudimos detectar el contenido. Ingrésalo manualmente según el envase.';
