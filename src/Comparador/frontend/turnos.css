@@ -143,6 +143,7 @@
 .turno-type-filter .type-municipal .type-icon{color:#e76f19;background:#fff3e8}
 .turno-type-filter .type-privada .type-icon{color:#2876c8;background:#edf6ff}
 .turno-type-filter .type-almacen .type-icon{color:#d92f78;background:#fff0f6}
+.turno-mobile-help{display:none}
 .turno-badge.urgency{background:#ffe8e8;color:#c7353a}
 .turno-badge.mobile{background:#f1edff;color:#6545c8}
 .turno-badge.municipal{background:#fff0df;color:#b85b12}
@@ -158,7 +159,31 @@
   }
   .turno-type-filter button{min-width:0;padding:7px 10px}
   .turno-type-filter .type-label{text-align:left;font-size:11px}
-  .turno-type-filter button::before{position:fixed;left:14px;right:14px;bottom:18px;width:auto;transform:translateY(7px)}
-  .turno-type-filter button::after{display:none}
-  .turno-type-filter button:hover::before,.turno-type-filter button:focus-visible::before{transform:translateY(0)}
+  .turno-type-filter button::before,.turno-type-filter button::after{display:none!important}
+  .turno-mobile-help{
+    display:grid;
+    grid-template-columns:34px 1fr;
+    gap:10px;
+    align-items:start;
+    margin:4px 0 12px;
+    padding:12px 13px;
+    border:1px solid #9ecfc5;
+    border-radius:13px;
+    background:linear-gradient(135deg,#eef9f6,#fff);
+    color:#064764;
+    box-shadow:0 8px 22px rgba(6,71,100,.08)
+  }
+  .turno-mobile-help::before{
+    content:"i";
+    display:grid;
+    place-items:center;
+    width:30px;
+    height:30px;
+    border-radius:9px;
+    background:#13A797;
+    color:#fff;
+    font-weight:900
+  }
+  .turno-mobile-help b{display:block;margin-bottom:2px;font-size:11px}
+  .turno-mobile-help span{color:#466b77;font-size:10px;line-height:1.45}
 }

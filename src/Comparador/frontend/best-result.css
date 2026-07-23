@@ -587,15 +587,15 @@ h1 span {
     align-items: center;
     justify-content: center;
     gap: 8px;
-    min-height: 42px;
-    margin: -2px 14px 10px;
-    border: 1px solid #13A797;
-    border-radius: 12px;
-    background: linear-gradient(135deg, rgba(19,167,151,.1), rgba(71,183,85,.13));
+    min-height: 48px;
+    margin: 8px 14px 16px;
+    border: 2px solid #47B755;
+    border-radius: 14px;
+    background: #FFFFFF;
     color: #064764;
     font-size: 13px;
     font-weight: 800;
-    box-shadow: 0 8px 20px rgba(6,71,100,.08);
+    box-shadow: 0 10px 25px rgba(0,38,54,.22);
   }
 
   .mobile-turno-link span {
@@ -607,7 +607,11 @@ h1 span {
     background: var(--brand-gradient);
     color: #FFFFFF;
     font-size: 13px;
+    box-shadow: 0 0 0 0 rgba(71,183,85,.48);
+    animation: turno-icon-pulse 2.2s ease-in-out infinite;
   }
+
+  .mobile-turno-link:active span { animation-duration: .8s; }
 
   .hero .search-box {
     margin-top: 58px;
@@ -644,4 +648,8 @@ h1 span {
     margin: 0;
     transform: none;
   }
+}
+
+@media (max-width:600px) and (prefers-reduced-motion:reduce) {
+  .mobile-turno-link span { animation:none; }
 }

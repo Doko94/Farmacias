@@ -67,7 +67,7 @@ const TYPE_LABELS={
   municipal:'Farmacia municipal',
   privada:'Farmacia privada',
   almacen:'Almacén farmacéutico',
-  todas:'Farmacia'
+  todas:'Todas las farmacias'
 };
 const matchesType=(item,type)=>type==='todas'||directoryType(item)===type;
 function markerIcon(open,item) {
@@ -171,7 +171,14 @@ setOptions($('#turno-region'),Object.keys(REGION_BOUNDS),'Selecciona una región
 $('#turno-region').value='Tarapacá';
 $('#turno-region').addEventListener('change',event=>loadRegion(event.target.value||'Tarapacá'));
 $('#turno-commune').addEventListener('change',render); $('#turno-search').addEventListener('input',render); $('#fit-map').addEventListener('click',fitVisibleMarkers);
-document.querySelectorAll('.turno-type-filter button').forEach(button=>button.addEventListener('click',async()=>{typeFilter=button.dataset.type;document.querySelectorAll('.turno-type-filter button').forEach(item=>{const active=item===button;item.classList.toggle('active',active);item.setAttribute('aria-pressed',String(active))});const requiredMode=['turno','urgencia'].includes(typeFilter)?'duty':'all';if(loadedMode!==requiredMode)await loadRegion($('#turno-region').value||'Tarapacá',requiredMode);else render()}));
+document.querySelectorAll('.turno-type-filter button').forEach(button=>button.addEventListener('click',async()=>{
+  typeFilter=button.dataset.type;
+  document.querySelectorAll('.turno-type-filter button').forEach(item=>{const active=item===button;item.classList.toggle('active',active);item.setAttribute('aria-pressed',String(active))});
+  const mobileHelp=$('#turno-mobile-help');
+  if(mobileHelp)mobileHelp.innerHTML=`<div><b>${TYPE_LABELS[typeFilter]}</b><span>${button.dataset.help||''}</span></div>`;
+  const requiredMode=['turno','urgencia'].includes(typeFilter)?'duty':'all';
+  if(loadedMode!==requiredMode)await loadRegion($('#turno-region').value||'Tarapacá',requiredMode);else render()
+}));
 $('#use-location').addEventListener('click',()=>{
   if(!navigator.geolocation){$('#turno-status').hidden=false;$('#turno-status').textContent='Tu navegador no permite obtener la ubicación.';return;}
   const button=$('#use-location'); button.disabled=true; button.textContent='Obteniendo ubicación…';
