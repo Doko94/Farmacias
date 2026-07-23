@@ -17,13 +17,14 @@
 }
 
 .nav .brand {
-  padding: 2px 9px;
-  border-radius: 12px;
-  background: #FFFFFF;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .nav .brand-logo {
-  height: 66px;
+  width: 188px;
+  height: 58px;
   object-fit: contain;
 }
 
@@ -35,6 +36,10 @@
 
 @media (max-width: 900px) {
   .nav-links { background: #004B66; border-bottom-color: rgba(197,227,222,.34); }
+}
+
+@media (max-width: 600px) {
+  .nav .brand-logo { width: 164px; height: 54px; }
 }
 
 .hero {
