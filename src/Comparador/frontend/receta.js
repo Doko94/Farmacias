@@ -242,17 +242,26 @@ function addManualMedicine() {
 }
 
 function buildPharmacyPlans(medicines) {
-  const reviewed = medicines.map((query) => ({
-    query,
-    offers: catalogMatches(query).filter((product) => product.available !== false),
-  }));
+  const reviewed = medicines.map((query) => {
+    const matches = catalogMatches(query);
+    return {
+      query,
+      offers: matches.filter((product) => product.available !== false),
+      unavailableOffers: matches.filter((product) => product.available === false),
+    };
+  });
   const pharmacies = [...new Set(reviewed.flatMap((item) => item.offers.map((offer) => offer.pharmacy)).filter(Boolean))];
   const plans = pharmacies.map((pharmacy) => {
     const lines = reviewed.map((item) => {
       const offers = item.offers
         .filter((offer) => offer.pharmacy === pharmacy)
         .sort((left, right) => left.price - right.price);
-      return { query: item.query, offer: offers[0] || null, alternatives: item.offers };
+      return {
+        query: item.query,
+        offer: offers[0] || null,
+        alternatives: item.offers,
+        unavailableAlternatives: item.unavailableOffers,
+      };
     });
     const matched = lines.filter((line) => line.offer);
     return {
@@ -268,6 +277,23 @@ function buildPharmacyPlans(medicines) {
 
 function recipeLineHtml(line) {
   if (!line.offer) {
+    const unavailable = (line.unavailableAlternatives || [])
+      .sort((left, right) => left.price - right.price);
+    if (unavailable.length) {
+      const product = unavailable[0];
+      const pharmacies = [...new Set(unavailable.map((offer) => offer.pharmacy).filter(Boolean))];
+      const productUrl = safeExternalUrl(product.url);
+      return `<li class="recipe-purchase-line unresolved stock-warning">
+        <span class="recipe-line-state" aria-hidden="true">!</span>
+        <div>
+          <b>${escapeHtml(line.query)}</b>
+          <span>${escapeHtml(product.name)} · ${escapeHtml(product.pharmacy || 'Farmacia no informada')}${unavailable.length > 1 ? ` · ${unavailable.length} registros sin stock` : ''}</span>
+          <div class="recipe-stock-warning"><strong>Disponibilidad por confirmar</strong><small>Revisa directamente con ${pharmacies.length === 1 ? 'la farmacia' : 'las farmacias'} antes de acudir.</small></div>
+          ${productUrl ? `<a href="${escapeHtml(productUrl)}" target="_blank" rel="noopener">Consultar en farmacia</a>` : ''}
+        </div>
+        <strong>${money(product.price)} · Sin stock</strong>
+      </li>`;
+    }
     const alternativePharmacies = [...new Set((line.alternatives || []).map((offer) => offer.pharmacy).filter(Boolean))];
     const alternativeText = alternativePharmacies.length
       ? `Sí existe en el catálogo. Disponible en: ${alternativePharmacies.slice(0, 3).join(', ')}${alternativePharmacies.length > 3 ? ` y ${alternativePharmacies.length - 3} más` : ''}.`
@@ -315,7 +341,12 @@ function buildMultiPharmacyPlan(reviewed, selectedPharmacies) {
     const eligible = item.offers
       .filter((offer) => selected.has(offer.pharmacy))
       .sort((left, right) => left.price - right.price);
-    return { query: item.query, offer: eligible[0] || null, alternatives: item.offers };
+    return {
+      query: item.query,
+      offer: eligible[0] || null,
+      alternatives: item.offers,
+      unavailableAlternatives: item.unavailableOffers,
+    };
   });
   const matched = lines.filter((line) => line.offer);
   const groups = new Map();
@@ -435,15 +466,27 @@ function optimizeReviewedMedicines() {
   }
   const { reviewed, plans } = buildPharmacyPlans(medicines);
   if (!plans.length) {
-    const unresolved = reviewed.map((item) => `<li class="unresolved"><b>${escapeHtml(item.query)}</b><span>No encontramos una coincidencia disponible. Corrige el nombre o prueba con el principio activo.</span></li>`);
-    results.innerHTML = `<div class="recipe-comparison"><h3>Sin coincidencias disponibles</h3><ul>${unresolved.join('')}</ul></div>`;
+    const unresolved = reviewed.map((item) => recipeLineHtml({
+      query: item.query,
+      offer: null,
+      alternatives: item.offers,
+      unavailableAlternatives: item.unavailableOffers,
+    }));
+    results.innerHTML = `<section class="recipe-purchase-result">
+      <div class="recipe-result-heading">
+        <div><span class="kicker">RESULTADO DE LA RECETA</span><h3>Disponibilidad pendiente de confirmación</h3><p>Encontramos referencias del catálogo, pero ninguna tiene stock confirmado en este momento.</p></div>
+        <div class="recipe-result-summary"><strong>0 de ${medicines.length}</strong><span>productos con stock confirmado</span><small>Puedes consultar directamente con cada farmacia</small></div>
+      </div>
+      <div class="recipe-plan-alert">Los precios mostrados son informativos y no garantizan disponibilidad. Revisa directamente con la farmacia antes de acudir.</div>
+      <ul class="recipe-purchase-list">${unresolved.join('')}</ul>
+    </section>`;
     results.scrollIntoView({ behavior: 'smooth', block: 'start' });
     return;
   }
   const bestCoverage = plans[0].coverage;
   const completeCount = plans.filter((plan) => plan.coverage === medicines.length).length;
   const allPharmacies = [...new Set(
-    reviewed.flatMap((item) => item.offers.map((offer) => offer.pharmacy)).filter(Boolean),
+    reviewed.flatMap((item) => [...item.offers, ...item.unavailableOffers].map((offer) => offer.pharmacy)).filter(Boolean),
   )].sort((left, right) => left.localeCompare(right, 'es'));
   results.innerHTML = `<section class="recipe-purchase-result">
     <div class="recipe-result-heading">
