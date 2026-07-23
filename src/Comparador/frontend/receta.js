@@ -46,24 +46,76 @@ function refreshCommunes() {
   loadCatalog();
 }
 
+const EXTRA_ADMINISTRATIVE = /\b(ahorro|descuento|art[i\u00ed]culo|cantidad|precio|monto|timbre|electr[o\u00f3]nico)\b/i;
+const SEARCH_STOP_WORDS = new Set(['para', 'por', 'con', 'del', 'las', 'los', 'una', 'uno', 'caja', 'frasco', 'envase', 'unidad', 'unidades', 'und', 'uds']);
+
+function canonicalSearch(value = '') {
+  return normalize(String(value)
+    .replace(/\bx\s*(?=\d)/gi, '')
+    .replace(/\b(\d+(?:[.,]\d+)?)\s*m\b/gi, '$1 ml')
+    .replace(/(\d+(?:[.,]\d+)?)\s*(mg|mcg|ug|ml|g|ui|iu)\b/gi, '$1$2'));
+}
+
+function searchTokens(value) {
+  return canonicalSearch(value).split(' ').filter((term) => (
+    (term.length >= 3 || /^\d+(?:[.,]\d+)?(?:mg|mcg|ug|ml|g|ui|iu|%)$/.test(term))
+    && !SEARCH_STOP_WORDS.has(term)
+    && !/^\d+$/.test(term)
+  ));
+}
+
 function searchable(product) {
-  return normalize(`${product.name} ${product.brand || ''} ${product.active_ingredient || ''}`);
+  return canonicalSearch(`${product.name} ${product.brand || ''} ${product.active_ingredient || ''}`);
+}
+
+const tokenMatches = (queryToken, productTokens) => productTokens.some((productToken) => (
+  productToken === queryToken
+  || queryToken.length >= 5 && productToken.startsWith(queryToken)
+  || productToken.length >= 5 && queryToken.startsWith(productToken)
+));
+
+function catalogMatchScore(query, product) {
+  const queryTokens = searchTokens(query);
+  if (!queryTokens.length || !(product.price > 0)) return 0;
+  const productTokens = searchTokens(searchable(product));
+  const matched = queryTokens.filter((term) => tokenMatches(term, productTokens));
+  const doseTokens = queryTokens.filter((term) => /\d(?:mg|mcg|ug|ml|g|ui|iu|%)$/.test(term));
+  if (doseTokens.some((term) => !tokenMatches(term, productTokens))) return 0;
+  if (!tokenMatches(queryTokens[0], productTokens)) return 0;
+  const required = queryTokens.length === 1 ? 1 : Math.max(2, Math.ceil(queryTokens.length * .6));
+  if (matched.length < required) return 0;
+  const phraseBonus = searchable(product).includes(canonicalSearch(query)) ? 30 : 0;
+  return matched.length * 20 + Math.round(matched.length * 40 / queryTokens.length) + phraseBonus;
 }
 
 function catalogMatches(query) {
-  const terms = normalize(query).split(' ').filter((term) => term.length > 1 && !/^\d+$/.test(term));
-  if (!terms.length) return [];
   return catalog
-    .filter((product) => product.price > 0 && terms.every((term) => searchable(product).includes(term)))
-    .sort((left, right) => Number(right.available) - Number(left.available) || left.price - right.price);
+    .map((product) => ({ product, score: catalogMatchScore(query, product) }))
+    .filter((entry) => entry.score > 0)
+    .sort((left, right) => Number(right.product.available) - Number(left.product.available) || right.score - left.score || left.product.price - right.product.price)
+    .map((entry) => entry.product);
+}
+
+function differsByAtMostOne(left, right) {
+  if (left === right) return true;
+  if (Math.abs(left.length - right.length) > 1) return false;
+  let edits = 0;
+  for (let i = 0, j = 0; i < left.length && j < right.length;) {
+    if (left[i] === right[j]) { i += 1; j += 1; continue; }
+    edits += 1;
+    if (edits > 1) return false;
+    if (left.length > right.length) i += 1;
+    else if (right.length > left.length) j += 1;
+    else { i += 1; j += 1; }
+  }
+  return true;
 }
 
 function looseCatalogMatch(query) {
-  const terms = normalize(query).split(' ').filter((term) => term.length >= 4 && !/^\d+$/.test(term));
-  if (!terms.length) return null;
-  const leading = terms[0];
+  const leading = searchTokens(query)[0];
+  if (!leading || leading.length < 5) return null;
   return catalog
-    .filter((product) => normalize(product.name).split(' ').some((term) => term === leading || term.startsWith(leading) || leading.startsWith(term)))
+    .filter((product) => product.price > 0 && searchTokens(product.name).some((term) => term.length >= 5 && differsByAtMostOne(term, leading)))
     .sort((left, right) => Number(right.available) - Number(left.available) || left.price - right.price)[0] || null;
 }
 
@@ -83,10 +135,21 @@ function cleanCandidate(value) {
   let cleaned = value
     .replace(/^\s*(?:rp\/?\s*)?(?:\d+\s*[.)-]?\s*)?/i, '')
     .replace(/^[•*\-–—]+\s*/, '')
+    .replace(/[^\p{L}\p{N}%+.,/()\- ]/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim();
   cleaned = cleaned.replace(/\s+(?:tomar|usar|aplicar|administrar)\b.*$/i, '').trim();
   return cleaned.slice(0, 180);
+}
+
+function plausibleCandidate(candidate) {
+  if (candidate.length < 3 || ADMINISTRATIVE.test(candidate) || EXTRA_ADMINISTRATIVE.test(candidate) || INSTRUCTION.test(candidate)) return false;
+  const words = candidate.match(/\p{L}+/gu) || [];
+  if (!words.length) return false;
+  const meaningful = words.filter((word) => word.length >= 3);
+  const shortFragments = words.filter((word) => word.length <= 2);
+  if (!meaningful.length || shortFragments.length > meaningful.length + 1) return false;
+  return true;
 }
 
 function detectedCandidates(text) {
@@ -95,7 +158,7 @@ function detectedCandidates(text) {
   for (const rawLine of text.split(/\r?\n/)) {
     const candidate = cleanCandidate(rawLine);
     const normalized = normalize(candidate);
-    if (candidate.length < 3 || ADMINISTRATIVE.test(candidate) || INSTRUCTION.test(candidate)) continue;
+    if (!plausibleCandidate(candidate)) continue;
     if (seen.has(normalized)) continue;
     const matched = catalogMatches(candidate).length > 0;
     const looseMatch = matched ? null : looseCatalogMatch(candidate);
@@ -189,7 +252,7 @@ function buildPharmacyPlans(medicines) {
       const offers = item.offers
         .filter((offer) => offer.pharmacy === pharmacy)
         .sort((left, right) => left.price - right.price);
-      return { query: item.query, offer: offers[0] || null };
+      return { query: item.query, offer: offers[0] || null, alternatives: item.offers };
     });
     const matched = lines.filter((line) => line.offer);
     return {
@@ -205,10 +268,14 @@ function buildPharmacyPlans(medicines) {
 
 function recipeLineHtml(line) {
   if (!line.offer) {
+    const alternativePharmacies = [...new Set((line.alternatives || []).map((offer) => offer.pharmacy).filter(Boolean))];
+    const alternativeText = alternativePharmacies.length
+      ? `Sí existe en el catálogo. Disponible en: ${alternativePharmacies.slice(0, 3).join(', ')}${alternativePharmacies.length > 3 ? ` y ${alternativePharmacies.length - 3} más` : ''}.`
+      : 'No encontramos una coincidencia confiable en el catálogo para esta ubicación.';
     return `<li class="recipe-purchase-line unresolved">
       <span class="recipe-line-state" aria-hidden="true">!</span>
-      <div><b>${escapeHtml(line.query)}</b><small>No encontramos este medicamento en la farmacia seleccionada.</small></div>
-      <strong>Sin coincidencia</strong>
+      <div><b>${escapeHtml(line.query)}</b><small>${escapeHtml(alternativeText)}</small></div>
+      <strong>${alternativePharmacies.length ? 'En otra farmacia' : 'Sin coincidencia'}</strong>
     </li>`;
   }
   const offer = line.offer;
