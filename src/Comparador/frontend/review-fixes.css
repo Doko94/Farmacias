@@ -37,7 +37,7 @@
 .alert-form .form-message { min-height: 18px; overflow-wrap: anywhere; color: #087f68; }
 .feature-card-restricted { cursor: not-allowed; }
 .feature-card-restricted article { position: relative; background: linear-gradient(145deg,#f7fbfa,#eef6f4); border-style: dashed; opacity: .92; }
-.access-seal { display: inline-flex; margin: 9px 0 4px; padding: 6px 9px; border: 1px solid #13a797; border-radius: 999px; background: #e6f6f3; color: #064764; font-size: 9px; font-weight: 800; letter-spacing: .08em; }
+.access-seal { display: inline-flex; margin: 9px 0 4px; padding: 7px 10px; border: 1px solid #e09a1b; border-radius: 999px; background: #fff1c7; color: #8a5400; font-size: 9px; font-weight: 800; letter-spacing: .08em; box-shadow: 0 5px 14px rgba(224,154,27,.18); }
 .feature-card-restricted b { color: #54716e; }
 
 .planner-number { min-width: 0; }
@@ -107,9 +107,18 @@
 
 .features .feature-card-restricted article {
   min-height: 310px;
-  border: 2px dashed rgba(19, 167, 151, .62);
-  background: linear-gradient(155deg, #f5faf9, #e9f5f2);
+  border: 2px dashed rgba(224, 154, 27, .72);
+  background: linear-gradient(155deg, #fffdf7, #fff5dc);
   box-shadow: 0 14px 34px rgba(6, 71, 100, .07);
+}
+
+.features .feature-card-restricted article::before {
+  background: linear-gradient(90deg, #e09a1b, #f2b544, #ffcc63);
+}
+
+.features .feature-card-restricted article > span {
+  background: #fff1c7;
+  color: #9a6000;
 }
 
 @media (max-width: 600px) {

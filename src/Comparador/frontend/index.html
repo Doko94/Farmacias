@@ -19,7 +19,9 @@
       <a class="brand" href="#inicio" aria-label="AhorraMed"><img class="brand-logo" src="assets/Logo_imagen_texto_transparent.png" alt="AhorraMed"></a>
       <button class="menu-btn" aria-label="Abrir menú" aria-expanded="false">☰</button>
       <div class="nav-links">
+        <a href="#comparar">Comparador</a>
         <a href="#herramientas">Más herramientas</a>
+        <a href="#alertas">Alertas de precio</a>
         <a class="nav-cta" href="farmacias-turno.html">Farmacias de turno</a>
       </div>
     </nav>
@@ -109,15 +111,6 @@
       </div>
     </section>
 
-    <section id="alertas" class="section dark-section"><div class="container split-grid">
-      <div><span class="kicker light">ALERTAS DE PRECIO</span><h2>Que el precio baje antes que se te acabe.</h2><p>Selecciona un producto del catálogo y te avisaremos cuando su nuevo precio sea menor que el registrado anteriormente.</p></div>
-      <form id="alert-form" class="alert-form" novalidate>
-        <label><span>Medicamento o producto</span><input id="alert-query" list="alert-products" required minlength="2" maxlength="120" autocomplete="off" spellcheck="false" aria-describedby="alert-message" placeholder="Busca y selecciona un producto"><datalist id="alert-products"></datalist></label>
-        <label><span>Correo para recibir el aviso</span><input id="alert-email" type="email" required minlength="6" maxlength="120" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" aria-describedby="alert-message" placeholder="tu@email.cl"></label><button class="button accent" type="submit">Avisarme si baja de precio</button>
-        <div id="alert-message" class="form-message" role="alert" aria-live="polite"></div>
-      </form>
-    </div></section>
-
     <section id="herramientas" class="section container features">
       <div class="section-heading"><div><span class="kicker">MÁS HERRAMIENTAS</span><h2>Una plataforma para entender tus gastos de salud</h2></div></div>
       <div class="feature-grid">
@@ -127,9 +120,18 @@
         <a class="feature-card-link" href="historial.html"><article><span>↗</span><h3>Historial de precios</h3><p>Observa tendencias y distingue ofertas reales.</p><b>Ver historial →</b></article></a>
         <a class="feature-card-link" href="bioequivalentes.html"><article><span>≋</span><h3>Bioequivalentes</h3><p>Compara alternativas informadas y ahorro potencial.</p><b>Comparar alternativas →</b></article></a>
         <a class="feature-card-link" href="dashboard.html"><article><span>⌁</span><h3>Analítica avanzada</h3><p>Dashboard de precios, ahorro, cobertura y stock.</p><b>Ver dashboard →</b></article></a>
-        <div id="api" class="feature-card-link feature-card-restricted" aria-label="API para terceros: acceso bajo solicitud"><article><span>{ }</span><div class="access-seal">ACCESO BAJO SOLICITUD</div><h3>API para terceros</h3><p>Integraciones disponibles previa evaluación y habilitación administrativa.</p><b>Contacta al administrador</b></article></div>
+        <div id="api" class="feature-card-link feature-card-restricted" aria-label="API para terceros: acceso restringido"><article><span>{ }</span><div class="access-seal" role="status">⚠ ACCESO RESTRINGIDO</div><h3>API para terceros</h3><p>Integraciones disponibles previa evaluación y habilitación administrativa.</p></article></div>
       </div>
     </section>
+
+    <section id="alertas" class="section dark-section"><div class="container split-grid">
+      <div><span class="kicker light">ALERTAS DE PRECIO</span><h2>Que el precio baje antes que se te acabe.</h2><p>Selecciona un producto del catálogo y te avisaremos cuando su nuevo precio sea menor que el registrado anteriormente.</p></div>
+      <form id="alert-form" class="alert-form" novalidate>
+        <label><span>Medicamento o producto</span><input id="alert-query" list="alert-products" required minlength="2" maxlength="120" autocomplete="off" spellcheck="false" aria-describedby="alert-message" placeholder="Busca y selecciona un producto"><datalist id="alert-products"></datalist></label>
+        <label><span>Correo para recibir el aviso</span><input id="alert-email" type="email" required minlength="6" maxlength="120" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" aria-describedby="alert-message" placeholder="tu@email.cl"></label><button class="button accent" type="submit">Avisarme si baja de precio</button>
+        <div id="alert-message" class="form-message" role="alert" aria-live="polite"></div>
+      </form>
+    </div></section>
   </main>
 
   <footer><div class="container footer-grid"><div><a class="brand" href="#inicio" aria-label="AhorraMed"><img class="brand-logo" src="assets/Logo_imagen_texto_transparent.png" alt="AhorraMed"></a><p>Comparador informativo. No vendemos medicamentos ni reemplazamos la orientación médica o farmacéutica.</p></div><div><b>Plataforma</b><a href="#comparar">Comparador</a><a href="receta.html">Recetas</a><a href="#alertas">Alertas</a></div><div><b>Importante</b><p>Verifica receta, concentración, stock y precio final en la farmacia antes de comprar.</p></div></div></footer>

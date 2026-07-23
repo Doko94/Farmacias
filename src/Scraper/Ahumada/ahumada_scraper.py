@@ -75,12 +75,15 @@ except ImportError:
 # ------------------------------------------------------------------
 BASE_URL = "https://www.farmaciasahumada.cl"
 
-# Perfil conservador optimizado. Todos estos valores se pueden sobrescribir
-# desde la linea de comandos sin volver a editar el archivo.
-DEFAULT_CONCURRENCY = 8
-DEFAULT_MIN_DELAY = 0.25
-DEFAULT_MAX_DELAY = 0.75
-DEFAULT_PAGE_SIZE = 96
+# Perfil confiable. El sitio aplica rate limiting con concurrencias altas y las
+# categorias padre NO contienen todo el catalogo; por eso el modo seguro usa el
+# recorrido completo que historicamente entrega cerca de 8.800 productos.
+DEFAULT_CONCURRENCY = 4
+DEFAULT_MIN_DELAY = 0.8
+DEFAULT_MAX_DELAY = 2.0
+DEFAULT_PAGE_SIZE = 24
+MIN_PRODUCTS_PER_LOCATION = 7_000
+CATEGORY_RETRY_ROUNDS = 2
 
 # Ubicaciones habilitadas para esta ejecucion.
 TARGET_LOCATIONS = {
@@ -187,8 +190,9 @@ def all_category_paths(include_parents: bool = True) -> list[str]:
 def category_paths(mode: str) -> list[str]:
     """Selecciona categorias evitando duplicar el catalogo innecesariamente."""
     if mode == "parents":
-        # Cada categoria padre contiene sus productos descendientes. Este modo
-        # reduce 68 recorridos a 11 y mantiene un respaldo por familia principal.
+        # Modo rapido/diagnostico. Ahumada no incluye necesariamente todos los
+        # descendientes en estas grillas, por lo que no debe publicarse como
+        # catalogo completo (el control de integridad lo rechazara).
         return list(CATEGORY_TREE)
     if mode == "leaves":
         return all_category_paths(include_parents=False)
@@ -300,7 +304,7 @@ class AhumadaScraper:
         if xhr:
             # SFRA reconoce XHR por este header en varios controladores AJAX.
             headers["X-Requested-With"] = "XMLHttpRequest"
-        max_attempts = 4
+        max_attempts = 6
         for attempt in range(1, max_attempts + 1):
             async with self._sem:
                 # jitter para no golpear en cadencia perfecta (evita rate-limit trivial)
@@ -315,7 +319,14 @@ class AhumadaScraper:
                     if attempt == max_attempts:
                         raise
                     # backoff exponencial con jitter
-                    backoff = (2 ** attempt) + random.uniform(0, 1)
+                    retry_after = 0.0
+                    response = getattr(e, "response", None)
+                    if response is not None:
+                        try:
+                            retry_after = float(response.headers.get("Retry-After", 0))
+                        except (TypeError, ValueError):
+                            retry_after = 0.0
+                    backoff = max(retry_after, min(30.0, 2 ** (attempt - 1))) + random.uniform(0, 1)
                     await asyncio.sleep(backoff)
         raise RuntimeError("unreachable")
 
@@ -697,14 +708,45 @@ class AhumadaScraper:
 
     # ---------- 6) crawl masivo ----------
     async def crawl_many(self, category_paths: Iterable[str]) -> list[Product]:
-        tasks = [self.crawl_category(p) for p in category_paths]
+        paths = list(category_paths)
+        tasks = [self.crawl_category(p) for p in paths]
         results = await asyncio.gather(*tasks, return_exceptions=True)
         out: list[Product] = []
-        for path, res in zip(category_paths, results):
+        failed: list[tuple[str, Exception]] = []
+        for path, res in zip(paths, results):
             if isinstance(res, Exception):
                 print(f"[WARN] Fallo categoria {path!r}: {res!r}")
-                continue
-            out.extend(res)
+                failed.append((path, res))
+            else:
+                out.extend(res)
+
+        # Cuando varias categorias parten a la vez, SFCC puede limitar la
+        # sesion completa. Los reintentos se hacen secuencialmente, con una
+        # pausa de recuperacion, para no repetir la misma rafaga.
+        for retry_round in range(1, CATEGORY_RETRY_ROUNDS + 1):
+            if not failed:
+                break
+            retry_paths = [path for path, _error in failed]
+            failed = []
+            recovery = 10 * retry_round
+            print(
+                f"[INFO] Reintentando {len(retry_paths)} categorias "
+                f"(ronda {retry_round}/{CATEGORY_RETRY_ROUNDS}) tras {recovery}s"
+            )
+            await asyncio.sleep(recovery)
+            for path in retry_paths:
+                try:
+                    out.extend(await self.crawl_category(path))
+                except Exception as exc:  # se informa y se invalida la captura
+                    print(f"[WARN] Reintento fallido categoria {path!r}: {exc!r}")
+                    failed.append((path, exc))
+
+        if failed:
+            names = ", ".join(path for path, _error in failed)
+            raise RuntimeError(
+                f"Captura incompleta: {len(failed)} categorias agotaron sus "
+                f"reintentos ({names})"
+            )
         return out
 
     # ---------- debug: volcar el HTML del primer tile ----------
@@ -786,12 +828,14 @@ async def run_scraping(args: argparse.Namespace):
             f"{len(locations)} comunas"
         )
 
-        # El archivo se inicializa una vez y luego se completa por comuna. Asi,
-        # si una ubicacion falla, lo ya capturado permanece guardado en disco.
+        # Se escribe primero en un archivo parcial. El CSV vigente solo se
+        # reemplaza cuando TODAS las ubicaciones superan los controles de
+        # integridad, evitando publicar catalogos truncados.
         output_path = Path(__file__).with_name(
             "ahumada_productos.csv"
         )
-        save_csv([], output_path)
+        partial_path = output_path.with_name("ahumada_productos.partial.csv")
+        save_csv([], partial_path)
         successful_locations = 0
         paths_to_crawl = category_paths(args.category_mode)
         print(f"[INFO] Categorias del menu a procesar: {len(paths_to_crawl)}")
@@ -818,12 +862,20 @@ async def run_scraping(args: argparse.Namespace):
                         f"{len(captured_products)} filas capturadas, "
                         f"{len(productos)} productos unicos"
                     )
+                    if len(productos) < MIN_PRODUCTS_PER_LOCATION:
+                        raise RuntimeError(
+                            f"Captura incompleta para {region} / {comuna}: "
+                            f"{len(productos)} productos; minimo de seguridad "
+                            f"{MIN_PRODUCTS_PER_LOCATION}"
+                        )
                     productos = await scraper.enrich_products(productos)
-                except httpx.HTTPError as exc:
-                    print(f"[WARN] Fallo {region} / {comuna}: {exc!r}")
-                    continue
+                except (httpx.HTTPError, RuntimeError) as exc:
+                    raise RuntimeError(
+                        f"No se reemplazara el CSV por fallo en "
+                        f"{region} / {comuna}: {exc}"
+                    ) from exc
 
-                save_csv(productos, output_path, append=True)
+                save_csv(productos, partial_path, append=True)
                 successful_locations += 1
             finally:
                 location_elapsed = time.perf_counter() - location_started
@@ -832,10 +884,13 @@ async def run_scraping(args: argparse.Namespace):
                     f"{format_duration(location_elapsed)}"
                 )
 
-        print(
-            f"[FIN] {successful_locations}/{len(locations)} ubicaciones "
-            f"procesadas -> {output_path}"
-        )
+        if successful_locations != len(locations):
+            raise RuntimeError(
+                f"Captura incompleta: {successful_locations}/{len(locations)} "
+                "ubicaciones procesadas"
+            )
+        partial_path.replace(output_path)
+        print(f"[FIN] Catalogo validado: {successful_locations}/{len(locations)} ubicaciones -> {output_path}")
 
 
 def parse_args() -> argparse.Namespace:
@@ -869,10 +924,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--category-mode",
         choices=("parents", "leaves", "all"),
-        default="parents",
+        default="all",
         help=(
             "parents procesa las familias principales; leaves solo categorias "
-            "finales; all conserva el recorrido antiguo completo."
+            "finales; all recorre el catalogo completo y es el modo seguro "
+            "predeterminado."
         ),
     )
     args = parser.parse_args()

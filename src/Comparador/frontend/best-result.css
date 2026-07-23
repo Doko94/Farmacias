@@ -10,6 +10,33 @@
   --brand-gradient: linear-gradient(135deg, #13A797 0%, #30B26D 55%, #47B755 100%);
 }
 
+.nav-wrap {
+  background: #004B66;
+  border-bottom-color: rgba(197, 227, 222, .34);
+  box-shadow: 0 7px 22px rgba(0, 75, 102, .15);
+}
+
+.nav .brand {
+  padding: 2px 9px;
+  border-radius: 12px;
+  background: #FFFFFF;
+}
+
+.nav .brand-logo {
+  height: 66px;
+  object-fit: contain;
+}
+
+.nav-links a { color: #FFFFFF; }
+.nav-links a:hover { color: #C5E3DE; }
+.nav-links .nav-cta { border-color: #C5E3DE; color: #FFFFFF; }
+.nav-links .nav-cta:hover { border-color: #FFFFFF; background: rgba(255,255,255,.1); color: #FFFFFF; }
+.menu-btn { color: #FFFFFF; }
+
+@media (max-width: 900px) {
+  .nav-links { background: #004B66; border-bottom-color: rgba(197,227,222,.34); }
+}
+
 .hero {
   background: linear-gradient(135deg, #f4fbfa 0%, #FFFFFF 48%, #e8f5f2 100%);
 }
