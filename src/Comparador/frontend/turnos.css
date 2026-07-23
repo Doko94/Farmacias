@@ -41,5 +41,124 @@
   background: #C5E3DE;
   color: #064764;
 }
-.turno-type-filter{display:flex;justify-content:center;gap:8px;margin:14px 0 2px}.turno-type-filter button{display:flex;align-items:center;gap:8px;min-height:43px;padding:8px 17px;border:1px solid var(--line);border-radius:999px;background:#fff;color:#466b77;font-weight:800;cursor:pointer;transition:.2s}.turno-type-filter button span{display:grid;place-items:center;min-width:25px;height:25px;padding:0 4px;border-radius:8px;background:#e7f5f2;color:#13A797;font-size:10px}.turno-type-filter button:hover{border-color:#13A797;color:#064764}.turno-type-filter button.active{border-color:transparent;background:var(--brand-gradient);color:#fff;box-shadow:0 8px 20px rgba(19,167,151,.2)}.turno-type-filter button.active span{background:#fff;color:#064764}.turno-badge.urgency{background:#ffe8e8;color:#c7353a}
-@media(max-width:600px){.turno-type-filter{justify-content:flex-start;overflow-x:auto;padding:2px 0 8px}.turno-type-filter button{flex:0 0 auto;padding-inline:13px}}
+.turno-type-filter{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  gap:10px;
+  margin:18px auto 4px;
+  max-width:1120px
+}
+.turno-type-filter button{
+  position:relative;
+  display:flex;
+  align-items:center;
+  gap:9px;
+  min-height:52px;
+  padding:8px 17px 8px 10px;
+  border:1px solid var(--line);
+  border-radius:999px;
+  background:#fff;
+  color:#466b77;
+  font-weight:800;
+  cursor:pointer;
+  transition:border-color .2s,box-shadow .2s,color .2s,transform .2s
+}
+.turno-type-filter .type-icon{
+  display:grid;
+  place-items:center;
+  width:36px;
+  height:36px;
+  flex:0 0 36px;
+  padding:0;
+  border-radius:12px;
+  background:#e7f5f2;
+  color:#13A797
+}
+.turno-type-filter .type-icon svg{
+  width:23px;
+  height:23px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.8;
+  stroke-linecap:round;
+  stroke-linejoin:round
+}
+.turno-type-filter .type-icon-text{font-size:9px;letter-spacing:-.04em}
+.turno-type-filter button:hover,.turno-type-filter button:focus-visible{
+  z-index:4;
+  border-color:#13A797;
+  color:#064764;
+  box-shadow:0 9px 24px rgba(6,71,100,.13);
+  transform:translateY(-2px);
+  outline:0
+}
+.turno-type-filter button.active{
+  border-color:transparent;
+  background:var(--brand-gradient);
+  color:#fff;
+  box-shadow:0 8px 20px rgba(19,167,151,.2)
+}
+.turno-type-filter button.active .type-icon{background:#fff;color:#064764}
+.turno-type-filter button::before,.turno-type-filter button::after{
+  position:absolute;
+  left:50%;
+  z-index:10;
+  opacity:0;
+  visibility:hidden;
+  pointer-events:none;
+  transition:opacity .16s,transform .16s,visibility .16s
+}
+.turno-type-filter button::before{
+  content:attr(data-help);
+  bottom:calc(100% + 13px);
+  width:260px;
+  padding:12px 14px;
+  border-radius:11px;
+  background:#073f56;
+  color:#fff;
+  font-size:11px;
+  font-weight:600;
+  line-height:1.45;
+  text-align:center;
+  box-shadow:0 12px 30px rgba(6,71,100,.25);
+  transform:translate(-50%,7px)
+}
+.turno-type-filter button::after{
+  content:"";
+  bottom:calc(100% + 6px);
+  border:7px solid transparent;
+  border-top-color:#073f56;
+  transform:translate(-50%,7px)
+}
+.turno-type-filter button:hover::before,.turno-type-filter button:hover::after,
+.turno-type-filter button:focus-visible::before,.turno-type-filter button:focus-visible::after{
+  opacity:1;
+  visibility:visible;
+  transform:translate(-50%,0)
+}
+.turno-type-filter .type-turno .type-icon{color:#159447}
+.turno-type-filter .type-urgencia .type-icon{color:#d94349;background:#fff0f0}
+.turno-type-filter .type-movil .type-icon{color:#7051d8;background:#f1edff}
+.turno-type-filter .type-municipal .type-icon{color:#e76f19;background:#fff3e8}
+.turno-type-filter .type-privada .type-icon{color:#2876c8;background:#edf6ff}
+.turno-type-filter .type-almacen .type-icon{color:#d92f78;background:#fff0f6}
+.turno-badge.urgency{background:#ffe8e8;color:#c7353a}
+.turno-badge.mobile{background:#f1edff;color:#6545c8}
+.turno-badge.municipal{background:#fff0df;color:#b85b12}
+.turno-badge.private{background:#e8f3ff;color:#2269ad}
+.turno-badge.warehouse{background:#ffeaf3;color:#b52664}
+@media(max-width:600px){
+  .turno-type-filter{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    justify-content:stretch;
+    overflow:visible;
+    padding:2px 0 8px
+  }
+  .turno-type-filter button{min-width:0;padding:7px 10px}
+  .turno-type-filter .type-label{text-align:left;font-size:11px}
+  .turno-type-filter button::before{position:fixed;left:14px;right:14px;bottom:18px;width:auto;transform:translateY(7px)}
+  .turno-type-filter button::after{display:none}
+  .turno-type-filter button:hover::before,.turno-type-filter button:focus-visible::before{transform:translateY(0)}
+}

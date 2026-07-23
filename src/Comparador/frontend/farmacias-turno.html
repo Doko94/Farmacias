@@ -45,9 +45,27 @@
         <button id="use-location" class="button location-button" type="button">⌖ Usar mi ubicación</button>
       </div>
       <div class="turno-type-filter" role="group" aria-label="Tipo de farmacia">
-        <button class="active" type="button" data-type="turno" aria-pressed="true"><span>◷</span> Farmacias de turno</button>
-        <button type="button" data-type="urgencia" aria-pressed="false"><span>24/7</span> Urgencia 24 horas</button>
-        <button type="button" data-type="todas" aria-pressed="false"><span>✚</span> Todas las farmacias</button>
+        <button class="active type-turno" type="button" data-type="turno" aria-pressed="true" title="Locales con apertura obligatoria durante el turno fijado por la autoridad sanitaria." data-help="Locales con apertura obligatoria durante el turno fijado por la autoridad sanitaria.">
+          <span class="type-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 7v5l3.5 2"></path></svg></span><span class="type-label">Farmacias de turno</span>
+        </button>
+        <button class="type-urgencia" type="button" data-type="urgencia" aria-pressed="false" title="Farmacias informadas con atención continua durante las 24 horas." data-help="Farmacias informadas con atención continua durante las 24 horas, todos los días.">
+          <span class="type-icon type-icon-text" aria-hidden="true">24/7</span><span class="type-label">Urgencia 24 horas</span>
+        </button>
+        <button class="type-movil" type="button" data-type="movil" aria-pressed="false" title="Puntos móviles autorizados para acercar la atención farmacéutica a distintas localidades." data-help="Puntos móviles autorizados que acercan la atención farmacéutica a distintas localidades.">
+          <span class="type-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 7h12v9H3zM15 10h3l3 3v3h-6z"></path><circle cx="7" cy="18" r="2"></circle><circle cx="18" cy="18" r="2"></circle></svg></span><span class="type-label">Farmacia móvil</span>
+        </button>
+        <button class="type-municipal" type="button" data-type="municipal" aria-pressed="false" title="Farmacias administradas por municipios o corporaciones municipales; pueden exigir inscripción o acreditar domicilio." data-help="Farmacias administradas por municipios o corporaciones municipales. Sus requisitos de acceso pueden variar.">
+          <span class="type-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20h16M6 20V9h12v11M4 9l8-5 8 5"></path><path d="M9 12v5M15 12v5"></path></svg></span><span class="type-label">Farmacia municipal</span>
+        </button>
+        <button class="type-privada" type="button" data-type="privada" aria-pressed="false" title="Farmacias privadas autorizadas para la venta y dispensación de medicamentos." data-help="Farmacias privadas autorizadas para la venta y dispensación de medicamentos.">
+          <span class="type-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8.5 4.5a3 3 0 0 1 4.2 0l6.8 6.8a3 3 0 0 1 0 4.2l-4 4a3 3 0 0 1-4.2 0l-6.8-6.8a3 3 0 0 1 0-4.2z"></path><path d="m8 16 8-8"></path></svg></span><span class="type-label">Farmacia privada</span>
+        </button>
+        <button class="type-todas" type="button" data-type="todas" aria-pressed="false" title="Muestra todos los establecimientos farmacéuticos informados para la zona." data-help="Muestra todos los establecimientos farmacéuticos informados para la zona seleccionada.">
+          <span class="type-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"></rect><path d="m8 12 3 3 5-6"></path></svg></span><span class="type-label">Todas las farmacias</span>
+        </button>
+        <button class="type-almacen" type="button" data-type="almacen" aria-pressed="false" title="Establecimientos autorizados para vender un listado acotado de medicamentos y productos farmacéuticos." data-help="Establecimientos autorizados para vender un listado acotado de medicamentos y productos farmacéuticos.">
+          <span class="type-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 9h18l-2-5H5zM5 9v11h14V9"></path><path d="M9 20v-6h6v6"></path></svg></span><span class="type-label">Almacén farmacéutico</span>
+        </button>
       </div>
       <div class="turno-summary">
         <div><strong id="turno-count">—</strong><span>farmacias encontradas</span></div>

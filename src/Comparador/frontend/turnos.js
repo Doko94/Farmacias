@@ -51,8 +51,28 @@ function distanceKm(a,b) {
   return earth*2*Math.atan2(Math.sqrt(value),Math.sqrt(1-value));
 }
 const isUrgency=(item)=>normalize(item.type).includes('urgencia');
+function directoryType(item) {
+  const value=normalize(`${item.type||''} ${item.category||''} ${item.name||''}`);
+  if(value.includes('urgencia')||value.includes('24 horas')||value.includes('24hrs'))return 'urgencia';
+  if(value.includes('movil'))return 'movil';
+  if(value.includes('municipal')||value.includes('comunal')||value.includes('popular'))return 'municipal';
+  if(value.includes('almacen farmaceutico')||value.startsWith('almacen ')||value.includes('botiquin'))return 'almacen';
+  if(value.includes('turno'))return 'turno';
+  return 'privada';
+}
+const TYPE_LABELS={
+  turno:'Farmacia de turno',
+  urgencia:'Urgencia 24 horas',
+  movil:'Farmacia móvil',
+  municipal:'Farmacia municipal',
+  privada:'Farmacia privada',
+  almacen:'Almacén farmacéutico',
+  todas:'Farmacia'
+};
+const matchesType=(item,type)=>type==='todas'||directoryType(item)===type;
 function markerIcon(open,item) {
-  const color=isUrgency(item)?'#e5484d':open===false?'#a94b4b':'#087f68';
+  const colors={urgencia:'#e5484d',movil:'#7051d8',municipal:'#e76f19',privada:'#2876c8',almacen:'#d92f78',turno:'#087f68'};
+  const color=open===false?'#a94b4b':colors[directoryType(item)]||'#087f68';
   return L.divIcon({className:'',html:`<span style="display:grid;place-items:center;width:30px;height:30px;border:3px solid white;border-radius:50% 50% 50% 0;background:${color};color:white;font-weight:800;box-shadow:0 4px 14px #0004;transform:rotate(-45deg)"><i style="transform:rotate(45deg);font-style:normal">+</i></span>`,iconSize:[30,30],iconAnchor:[15,30]});
 }
 function setOptions(select,values,placeholder) {
@@ -77,12 +97,12 @@ function fitVisibleMarkers() {
 }
 function createCard(item) {
   const card=document.createElement('article'); card.className='turno-card';
-  const opened=isOpen(item); const distance=userPosition&&validCoordinates(item)?distanceKm(userPosition,item):null;
+  const opened=isOpen(item); const category=directoryType(item); const distance=userPosition&&validCoordinates(item)?distanceKm(userPosition,item):null;
   const header=document.createElement('div'); header.className='turno-card-header';
   const title=document.createElement('h3'); title.textContent=item.name;
   const badge=document.createElement('span'); badge.className=`turno-badge${opened===false?' closed':''}`;
-  if(loadedMode==='all')badge.textContent='Farmacia';
-  else if(isUrgency(item)){badge.classList.add('urgency');badge.textContent=opened===false?'Urgencia · por confirmar':'Urgencia 24 horas'}
+  if(category==='urgencia'){badge.classList.add('urgency');badge.textContent=opened===false?'Urgencia · por confirmar':'Urgencia 24 horas'}
+  else if(loadedMode==='all'){badge.classList.add(category==='movil'?'mobile':category==='municipal'?'municipal':category==='almacen'?'warehouse':'private');badge.textContent=TYPE_LABELS[category]}
   else badge.textContent=item.on_duty&&opened===true?'De turno · abierta':item.on_duty?'De turno':opened===true?'Abierta ahora':opened===false?'Fuera de horario':'Horario informado';
   header.append(title,badge); card.appendChild(header);
   const address=document.createElement('span'); address.className='turno-address'; address.textContent=`${item.address}${item.commune?`, ${item.commune}`:''}`; card.appendChild(address);
@@ -99,7 +119,7 @@ function createCard(item) {
 }
 function render() {
   const region=$('#turno-region').value; const commune=$('#turno-commune').value; const search=normalize($('#turno-search').value);
-  filtered=pharmacies.filter(item=>(typeFilter==='todas'||typeFilter==='urgencia'&&isUrgency(item)||typeFilter==='turno'&&!isUrgency(item))&&(!region||regionName(item)===region)&&(!commune||normalize(item.commune)===normalize(commune))&&(!search||normalize(`${item.name} ${item.address} ${item.commune} ${regionName(item)}`).includes(search)));
+  filtered=pharmacies.filter(item=>matchesType(item,typeFilter)&&(!region||regionName(item)===region)&&(!commune||normalize(item.commune)===normalize(commune))&&(!search||normalize(`${item.name} ${item.address} ${item.commune} ${regionName(item)}`).includes(search)));
   if(userPosition) filtered.sort((a,b)=>(validCoordinates(a)?distanceKm(userPosition,a):Infinity)-(validCoordinates(b)?distanceKm(userPosition,b):Infinity));
   $('#turno-count').textContent=new Intl.NumberFormat('es-CL').format(filtered.length);
   const container=$('#turno-results'); container.innerHTML=''; clearMarkers();
@@ -116,13 +136,13 @@ function render() {
     const place=commune||$('#turno-search').value.trim();
     if(typeFilter!=='todas'&&place){
       const safePlace=String(place).replace(/[<>&]/g,'');
-      $('#turno-status').innerHTML=`No hay una farmacia ${typeFilter==='urgencia'?'de urgencia 24 horas':'de turno'} informada hoy para <b>${safePlace}</b>. La comuna sí puede tener farmacias con horario habitual. <button id="show-all-from-empty" type="button">Ver todas las farmacias</button>`;
+      $('#turno-status').innerHTML=`No hay establecimientos de tipo <b>${TYPE_LABELS[typeFilter]}</b> informados para <b>${safePlace}</b>. Prueba con el directorio completo. <button id="show-all-from-empty" type="button">Ver todas las farmacias</button>`;
       $('#show-all-from-empty').addEventListener('click',()=>document.querySelector('.turno-type-filter button[data-type="todas"]').click());
     }else $('#turno-status').textContent='No hay farmacias que coincidan con los filtros seleccionados.';
   }
   fitVisibleMarkers();
 }
-async function loadRegion(region='Tarapacá',mode=typeFilter==='todas'?'all':'duty') {
+async function loadRegion(region='Tarapacá',mode=['turno','urgencia'].includes(typeFilter)?'duty':'all') {
   const bounds=REGION_BOUNDS[region]||REGION_BOUNDS.Tarapacá;
   const params=new URLSearchParams({...bounds,region,mode});
   $('#turno-status').hidden=false;
@@ -151,7 +171,7 @@ setOptions($('#turno-region'),Object.keys(REGION_BOUNDS),'Selecciona una región
 $('#turno-region').value='Tarapacá';
 $('#turno-region').addEventListener('change',event=>loadRegion(event.target.value||'Tarapacá'));
 $('#turno-commune').addEventListener('change',render); $('#turno-search').addEventListener('input',render); $('#fit-map').addEventListener('click',fitVisibleMarkers);
-document.querySelectorAll('.turno-type-filter button').forEach(button=>button.addEventListener('click',async()=>{typeFilter=button.dataset.type;document.querySelectorAll('.turno-type-filter button').forEach(item=>{const active=item===button;item.classList.toggle('active',active);item.setAttribute('aria-pressed',String(active))});const requiredMode=typeFilter==='todas'?'all':'duty';if(loadedMode!==requiredMode)await loadRegion($('#turno-region').value||'Tarapacá',requiredMode);else render()}));
+document.querySelectorAll('.turno-type-filter button').forEach(button=>button.addEventListener('click',async()=>{typeFilter=button.dataset.type;document.querySelectorAll('.turno-type-filter button').forEach(item=>{const active=item===button;item.classList.toggle('active',active);item.setAttribute('aria-pressed',String(active))});const requiredMode=['turno','urgencia'].includes(typeFilter)?'duty':'all';if(loadedMode!==requiredMode)await loadRegion($('#turno-region').value||'Tarapacá',requiredMode);else render()}));
 $('#use-location').addEventListener('click',()=>{
   if(!navigator.geolocation){$('#turno-status').hidden=false;$('#turno-status').textContent='Tu navegador no permite obtener la ubicación.';return;}
   const button=$('#use-location'); button.disabled=true; button.textContent='Obteniendo ubicación…';

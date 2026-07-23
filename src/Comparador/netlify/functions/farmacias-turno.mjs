@@ -146,7 +146,7 @@ function normalizeBuscaFarmaRows(rows, endpoint, region) {
     local_lat:item.lat,
     local_lng:item.lng,
     comuna_nombre:item.comuna,
-    tipo:'Farmacia autorizada',
+    tipo:item.tipo || item.tipo_establecimiento || item.categoria || item.clase || 'Farmacia autorizada',
     turno:false
   },region)).filter(item=>item.name&&item.commune)};
 }
