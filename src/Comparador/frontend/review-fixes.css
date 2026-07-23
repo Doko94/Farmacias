@@ -40,6 +40,10 @@
 .access-seal { display: inline-flex; margin: 9px 0 4px; padding: 6px 9px; border: 1px solid #13a797; border-radius: 999px; background: #e6f6f3; color: #064764; font-size: 9px; font-weight: 800; letter-spacing: .08em; }
 .feature-card-restricted b { color: #54716e; }
 
+.planner-number { min-width: 0; }
+.planner-number[aria-invalid="true"], #planner-query[aria-invalid="true"] { border-color: #c84a4a; box-shadow: 0 0 0 3px rgba(200,74,74,.1); }
+.planner-validation { grid-column: 1/-1; min-height: 18px; color: #a53e3e; font-size: 11px; font-weight: 700; }
+
 .turno-status button {
   display: block;
   margin: 12px auto 0;

@@ -3,6 +3,42 @@ const COMMUNES = { Tarapaca: ['Iquique'], 'Arica y Parinacota': ['Arica'], Antof
 let catalog = [];
 const normalize = (value = '') => value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9%]+/g, ' ').trim();
 const money = (value) => new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(value || 0);
+const LIMITS = {
+  'planner-units-dose': { min: 0.1, max: 100, label: 'Unidades por dosis' },
+  'planner-doses-day': { min: 0.1, max: 24, label: 'Dosis al día' },
+  'planner-units-pack': { min: 0.1, max: 10000, label: 'Contenido por envase' },
+  'planner-days': { min: 1, max: 366, label: 'Días' },
+};
+
+function plannerMessage(message = '') {
+  $('#planner-validation').textContent = message;
+}
+
+Object.entries(LIMITS).forEach(([id, limit]) => {
+  const input = $(`#${id}`);
+  input.addEventListener('keydown', (event) => {
+    if (['e', 'E', '+', '-'].includes(event.key)) event.preventDefault();
+  });
+  input.addEventListener('input', () => {
+    const value = Number(input.value);
+    input.removeAttribute('aria-invalid');
+    if (input.value === '') { plannerMessage(''); return; }
+    if (!Number.isFinite(value)) { input.value = ''; plannerMessage(`${limit.label}: ingresa solamente números.`); return; }
+    if (value > limit.max) {
+      input.value = limit.max;
+      input.setAttribute('aria-invalid', 'true');
+      plannerMessage(`${limit.label}: el máximo permitido es ${limit.max.toLocaleString('es-CL')}.`);
+      return;
+    }
+    if (value < 0) {
+      input.value = limit.min;
+      input.setAttribute('aria-invalid', 'true');
+      plannerMessage(`${limit.label}: no se permiten valores negativos.`);
+      return;
+    }
+    plannerMessage('');
+  });
+});
 
 async function load() {
   const manifest = await fetch('./data/manifest.json').then((response) => response.json());
@@ -50,7 +86,13 @@ $('#planner-query').addEventListener('change', () => {
 
 $('#planner-form').addEventListener('submit', (event) => {
   event.preventDefault();
-  if (!event.currentTarget.reportValidity()) return;
+  if (!event.currentTarget.checkValidity()) {
+    const invalid = event.currentTarget.querySelector(':invalid');
+    invalid?.setAttribute('aria-invalid', 'true');
+    plannerMessage('Revisa los campos: hay valores vacíos o fuera del rango permitido.');
+    invalid?.focus();
+    return;
+  }
   const query = normalize($('#planner-query').value);
   const terms = query.split(' ').filter(Boolean);
   const offers = catalog
@@ -66,7 +108,7 @@ $('#planner-form').addEventListener('submit', (event) => {
     && dosesDay > 0 && dosesDay <= 24
     && pack > 0 && pack <= 10000
     && days >= 1 && days <= 366;
-  if (!valid) { showError('Usa valores razonables: máximo 100 unidades por dosis, 24 dosis diarias, 10.000 unidades por envase y 366 días.'); return; }
+  if (!valid) { plannerMessage('Usa valores razonables: máximo 100 unidades por dosis, 24 dosis diarias, 10.000 unidades por envase y 366 días.'); showError('Revisa las cantidades indicadas en el formulario.'); return; }
   if (!offer) { showError('Selecciona una presentación disponible desde las sugerencias del catálogo.'); return; }
   const required = unitsDose * dosesDay * days;
   const packages = Math.ceil(required / pack);
