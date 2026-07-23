@@ -38,4 +38,36 @@
 
 .recipe-review{display:grid;gap:12px;margin-top:14px;padding:16px;border:1px solid #b7dbd3;border-radius:15px;background:#f7fcfb;color:var(--ink)}.recipe-review>small{color:var(--muted);line-height:1.5}.recipe-medicine-row{display:grid;grid-template-columns:1fr auto;gap:9px;align-items:start;margin-top:8px}.recipe-medicine-row>div{display:grid;gap:4px}.recipe-medicine-row input,.recipe-manual-add input{min-width:0;width:100%;height:43px;padding:0 11px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--ink);outline:0}.recipe-medicine-row input:focus,.recipe-manual-add input:focus{border-color:var(--green);box-shadow:0 0 0 3px #13a7971a}.recipe-medicine-row small{color:var(--muted);font-size:9px;line-height:1.4}.recipe-remove{width:36px;height:36px;border:0;border-radius:9px;background:#fff;color:#b44242;font-size:20px;cursor:pointer}.recipe-manual-add{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:4px;padding-top:13px;border-top:1px solid var(--line)}.recipe-manual-add button{padding:0 14px;border:0;border-radius:9px;background:var(--brand-gradient);color:#fff;font-weight:800;cursor:pointer}.recipe-empty{padding:17px;border:1px dashed var(--line);border-radius:10px;color:var(--muted);text-align:center}.recipe-review details{font-size:10px}.recipe-review pre{max-height:190px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}.recipe-warning{margin-top:10px;padding:11px;border:1px solid #f1c77a;border-radius:9px;background:#fff8e8;color:#75510c;line-height:1.5}.recipe-comparison{display:grid;gap:10px;margin-top:14px;padding:16px;border:1px solid var(--line);border-radius:14px;background:#fff;color:var(--ink)}.recipe-comparison ul{display:grid;gap:8px;margin:0;padding:0;list-style:none}.recipe-comparison li{display:grid;gap:3px;padding:10px;border-radius:9px;background:#eef8f5}.recipe-comparison li b,.recipe-comparison li span{overflow-wrap:anywhere}.recipe-comparison li span,.recipe-comparison small{color:var(--muted);font-size:10px}.recipe-comparison li.unresolved{border:1px solid #f1c77a;background:#fff8e8}.ocr-progress{display:grid;gap:7px;padding:15px}.ocr-progress i{display:block;width:var(--progress);height:6px;border-radius:99px;background:var(--brand-gradient);transition:width .2s}
 
-@media(max-width:600px){.recipe-manual-add{grid-template-columns:1fr}.recipe-manual-add button{min-height:43px}}
+.recipe-results-wide{margin-top:30px}
+.recipe-purchase-result{display:grid;gap:18px;margin-top:20px;padding:22px;border:2px solid #13A797;border-radius:20px;background:#fff;box-shadow:0 18px 48px rgba(6,71,100,.1);color:var(--ink)}
+.recipe-result-heading{display:grid;grid-template-columns:1fr auto;gap:22px;align-items:end;padding-bottom:17px;border-bottom:1px solid var(--line)}
+.recipe-result-heading h3{margin:5px 0;font-size:23px;color:#064764}
+.recipe-result-heading p{margin:0;color:var(--muted);font-size:12px;line-height:1.5}
+.recipe-result-summary{display:grid;min-width:190px;padding:13px 16px;border-radius:14px;background:#eef8f5;text-align:right}
+.recipe-result-summary strong{color:#064764;font-size:25px}
+.recipe-result-summary span,.recipe-result-summary small{color:var(--muted);font-size:9px}
+.recipe-pharmacy-picker{display:grid;gap:7px;color:#064764;font-size:11px;font-weight:800}
+.recipe-pharmacy-picker select{width:100%;min-height:48px;padding:0 40px 0 13px;border:1px solid #9ecfc5;border-radius:11px;background:#fff;color:#064764;font-weight:700;outline:0}
+.recipe-pharmacy-picker select:focus{border-color:#13A797;box-shadow:0 0 0 3px rgba(19,167,151,.13)}
+.recipe-plan-metrics{display:grid;grid-template-columns:1.1fr .9fr;gap:12px}
+.recipe-plan-metrics>div{display:grid;align-content:center;min-height:92px;padding:15px 17px;border-radius:14px;background:linear-gradient(135deg,#064764,#08738b);color:#fff}
+.recipe-plan-metrics>div+div{background:#eef8f5;color:#064764}
+.recipe-plan-metrics span{font-size:10px;font-weight:700}
+.recipe-plan-metrics strong{margin-top:3px;font-size:28px;line-height:1.1}
+.recipe-plan-metrics small{margin-top:5px;color:var(--muted);font-size:9px}
+.recipe-plan-alert{padding:11px 13px;border:1px solid #efc270;border-radius:10px;background:#fff8e8;color:#75510c;font-size:10px;line-height:1.5}
+.recipe-purchase-list{display:grid;gap:9px;margin:0;padding:0;list-style:none}
+.recipe-purchase-line{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:11px;align-items:start;padding:13px;border:1px solid var(--line);border-radius:13px;background:#f8fcfb}
+.recipe-line-state{display:grid;place-items:center;width:26px;height:26px;border-radius:8px;background:#fff0df;color:#a96012;font-weight:900}
+.recipe-line-state.matched{background:#dff7ec;color:#087f68}
+.recipe-purchase-line>div{display:grid;gap:3px;min-width:0}
+.recipe-purchase-line b,.recipe-purchase-line span,.recipe-purchase-line small{overflow-wrap:anywhere}
+.recipe-purchase-line b{font-size:12px;color:#064764}
+.recipe-purchase-line span,.recipe-purchase-line small{color:var(--muted);font-size:9px;line-height:1.45}
+.recipe-purchase-line a{width:max-content;color:#0b8f7b;font-size:9px;font-weight:800}
+.recipe-purchase-line>strong{color:#064764;font-size:14px;white-space:nowrap}
+.recipe-purchase-line.unresolved{border-color:#efc270;background:#fffaf0}
+.recipe-purchase-line.unresolved>strong{color:#9b641d;font-size:9px}
+.recipe-plan-disclaimer{margin:0;color:var(--muted);font-size:9px;line-height:1.55}
+
+@media(max-width:600px){.recipe-manual-add{grid-template-columns:1fr}.recipe-manual-add button{min-height:43px}.recipe-purchase-result{padding:16px}.recipe-result-heading,.recipe-plan-metrics{grid-template-columns:1fr}.recipe-result-summary{text-align:left}.recipe-purchase-line{grid-template-columns:26px minmax(0,1fr)}.recipe-purchase-line>strong{grid-column:2}.recipe-pharmacy-picker select{font-size:11px}}

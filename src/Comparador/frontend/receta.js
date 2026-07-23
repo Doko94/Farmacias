@@ -20,6 +20,14 @@ const escapeHtml = (value = '') => String(value).replace(/[&<>"']/g, (character)
 const money = (value) => new Intl.NumberFormat('es-CL', {
   style: 'currency', currency: 'CLP', maximumFractionDigits: 0,
 }).format(value || 0);
+const safeExternalUrl = (value = '') => {
+  try {
+    const url = new URL(value, window.location.origin);
+    return ['http:', 'https:'].includes(url.protocol) ? url.href : '';
+  } catch {
+    return '';
+  }
+};
 
 const ADMINISTRATIVE = /\b(nombre|apellido|edad|direcci[oó]n|avenida|calle|cl[ií]nica|centro|consulta|tel[eé]fono|fono|m[eé]dico|m[eé]dica|doctor|doctora|diagn[oó]stico|rut|firma|fecha|paciente|previsi[oó]n|correo|email|boleta|caja|cajero|vendedor|total|neto|iva|forma de pago)\b/i;
 const INSTRUCTION = /\b(tomar|aplicar|administrar|usar|cada|durante|horas?|d[ií]as?|sos|seg[uú]n indicaci[oó]n|v[ií]a oral)\b/i;
@@ -124,7 +132,9 @@ function renderReview(text = '', detected = [], notice = '') {
     </div>
     ${notice ? `<div class="recipe-warning">${escapeHtml(notice)}</div>` : ''}
     <details><summary>Ver texto completo detectado</summary><pre>${escapeHtml(text || 'No se obtuvo texto legible.')}</pre></details>
-  </div><div id="recipe-results" aria-live="polite"></div>`;
+  </div>`;
+  const results = $('#recipe-results');
+  if (results) results.innerHTML = '';
   renderMedicineRows();
   $('#recipe-add-manual').addEventListener('click', addManualMedicine);
   $('#recipe-manual').addEventListener('keydown', (event) => {
@@ -166,6 +176,70 @@ function addManualMedicine() {
   input.value = '';
   renderMedicineRows();
   input.focus();
+}
+
+function buildPharmacyPlans(medicines) {
+  const reviewed = medicines.map((query) => ({
+    query,
+    offers: catalogMatches(query).filter((product) => product.available !== false),
+  }));
+  const pharmacies = [...new Set(reviewed.flatMap((item) => item.offers.map((offer) => offer.pharmacy)).filter(Boolean))];
+  const plans = pharmacies.map((pharmacy) => {
+    const lines = reviewed.map((item) => {
+      const offers = item.offers
+        .filter((offer) => offer.pharmacy === pharmacy)
+        .sort((left, right) => left.price - right.price);
+      return { query: item.query, offer: offers[0] || null };
+    });
+    const matched = lines.filter((line) => line.offer);
+    return {
+      pharmacy,
+      lines,
+      coverage: matched.length,
+      total: matched.reduce((sum, line) => sum + Number(line.offer.price || 0), 0),
+    };
+  }).filter((plan) => plan.coverage > 0);
+  plans.sort((left, right) => right.coverage - left.coverage || left.total - right.total || left.pharmacy.localeCompare(right.pharmacy, 'es'));
+  return { reviewed, plans };
+}
+
+function recipeLineHtml(line) {
+  if (!line.offer) {
+    return `<li class="recipe-purchase-line unresolved">
+      <span class="recipe-line-state" aria-hidden="true">!</span>
+      <div><b>${escapeHtml(line.query)}</b><small>No encontramos este medicamento en la farmacia seleccionada.</small></div>
+      <strong>Sin coincidencia</strong>
+    </li>`;
+  }
+  const offer = line.offer;
+  const productUrl = safeExternalUrl(offer.url);
+  const link = productUrl
+    ? `<a href="${escapeHtml(productUrl)}" target="_blank" rel="noopener">Ver producto</a>`
+    : '';
+  return `<li class="recipe-purchase-line">
+    <span class="recipe-line-state matched" aria-hidden="true">✓</span>
+    <div>
+      <b>${escapeHtml(line.query)}</b>
+      <span>${escapeHtml(offer.name)}</span>
+      <small>${offer.available === false ? 'Disponibilidad por confirmar' : 'Disponible según la última actualización'}${offer.brand ? ` · ${escapeHtml(offer.brand)}` : ''}</small>
+      ${link}
+    </div>
+    <strong>${money(offer.price)}</strong>
+  </li>`;
+}
+
+function renderSelectedPharmacyPlan(plans, medicineCount, selectedPharmacy) {
+  const plan = plans.find((item) => item.pharmacy === selectedPharmacy) || plans[0];
+  const detail = $('#recipe-plan-detail');
+  if (!plan || !detail) return;
+  const missing = medicineCount - plan.coverage;
+  detail.innerHTML = `<div class="recipe-plan-metrics">
+      <div><span>${missing ? 'Subtotal encontrado' : 'Total estimado'}</span><strong>${money(plan.total)}</strong></div>
+      <div><span>Cobertura de la receta</span><strong>${plan.coverage} de ${medicineCount}</strong><small>${missing ? `${missing} medicamento${missing === 1 ? '' : 's'} sin coincidencia` : 'Receta completa en esta farmacia'}</small></div>
+    </div>
+    ${missing ? '<div class="recipe-plan-alert">El valor mostrado no incluye los medicamentos sin coincidencia en esta farmacia.</div>' : ''}
+    <ul class="recipe-purchase-list">${plan.lines.map(recipeLineHtml).join('')}</ul>
+    <p class="recipe-plan-disclaimer">Total informativo para una unidad de cada producto. Confirma presentación, receta, stock y precio final directamente con la farmacia.</p>`;
 }
 
 async function prepareImage(file) {
@@ -238,12 +312,29 @@ function optimizeReviewedMedicines() {
     $('#recipe-manual')?.focus();
     return;
   }
-  const lines = medicines.map((query) => {
-    const offer = catalogMatches(query).filter((product) => product.available !== false)[0];
-    if (offer) return `<li><b>${escapeHtml(query)}</b><span>${escapeHtml(offer.name)} · ${escapeHtml(offer.pharmacy)} · ${money(offer.price)}</span></li>`;
-    return `<li class="unresolved"><b>${escapeHtml(query)}</b><span>No encontramos una coincidencia confiable. Corrige el nombre arriba o prueba con el principio activo.</span></li>`;
-  });
-  results.innerHTML = `<div class="recipe-comparison"><b>Resultado para los medicamentos revisados</b><ul>${lines.join('')}</ul><small>Confirma presentación, dosis, receta, stock y precio final directamente con cada farmacia.</small></div>`;
+  const { reviewed, plans } = buildPharmacyPlans(medicines);
+  if (!plans.length) {
+    const unresolved = reviewed.map((item) => `<li class="unresolved"><b>${escapeHtml(item.query)}</b><span>No encontramos una coincidencia disponible. Corrige el nombre o prueba con el principio activo.</span></li>`);
+    results.innerHTML = `<div class="recipe-comparison"><h3>Sin coincidencias disponibles</h3><ul>${unresolved.join('')}</ul></div>`;
+    results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
+  }
+  const bestCoverage = plans[0].coverage;
+  const completeCount = plans.filter((plan) => plan.coverage === medicines.length).length;
+  results.innerHTML = `<section class="recipe-purchase-result">
+    <div class="recipe-result-heading">
+      <div><span class="kicker">RESULTADO DE LA RECETA</span><h3>Elige dónde quieres comprar</h3><p>Las farmacias están ordenadas por cantidad de coincidencias y luego por precio.</p></div>
+      <div class="recipe-result-summary"><strong>${bestCoverage} de ${medicines.length}</strong><span>mayor cobertura encontrada</span>${completeCount ? `<small>${completeCount} farmacia${completeCount === 1 ? '' : 's'} cubren la receta completa</small>` : '<small>Ninguna farmacia cubre todavía toda la receta</small>'}</div>
+    </div>
+    <label class="recipe-pharmacy-picker">Farmacia seleccionada
+      <select id="recipe-pharmacy-select">${plans.map((plan, index) => `<option value="${escapeHtml(plan.pharmacy)}">${index === 0 ? 'Recomendada · ' : ''}${escapeHtml(plan.pharmacy)} · ${plan.coverage}/${medicines.length} coincidencias · ${money(plan.total)}</option>`).join('')}</select>
+    </label>
+    <div id="recipe-plan-detail"></div>
+  </section>`;
+  const select = $('#recipe-pharmacy-select');
+  renderSelectedPharmacyPlan(plans, medicines.length, select.value);
+  select.addEventListener('change', () => renderSelectedPharmacyPlan(plans, medicines.length, select.value));
+  results.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 $('#recipe-file-page').addEventListener('change', (event) => processRecipe(event.target.files[0]));
