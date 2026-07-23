@@ -23,7 +23,7 @@
 }
 
 .nav .brand-logo {
-  width: 188px;
+  width: 218px;
   height: 58px;
   object-fit: contain;
 }
@@ -39,7 +39,7 @@
 }
 
 @media (max-width: 600px) {
-  .nav .brand-logo { width: 164px; height: 54px; }
+  .nav .brand-logo { width: 184px; height: 52px; }
 }
 
 .hero {
