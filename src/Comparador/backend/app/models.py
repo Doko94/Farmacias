@@ -19,6 +19,9 @@ class ProductOffer:
     category: str = ""
     active_ingredient: str = ""
     bioequivalent: bool = False
+    official_bioequivalent: bool | None = None
+    isp_registry: str = ""
+    administration_route: str = ""
     fonasa_price: int | None = None
     available: bool | None = None
     stock_quantity: int | None = None

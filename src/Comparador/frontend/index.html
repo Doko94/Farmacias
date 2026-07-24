@@ -131,6 +131,7 @@
       <form id="alert-form" class="alert-form" novalidate>
         <label><span>Medicamento o producto</span><input id="alert-query" list="alert-products" required minlength="2" maxlength="120" autocomplete="off" spellcheck="false" aria-describedby="alert-message" placeholder="Busca y selecciona un producto"><datalist id="alert-products"></datalist></label>
         <label><span>Correo para recibir el aviso</span><input id="alert-email" type="email" required minlength="6" maxlength="120" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" aria-describedby="alert-message" placeholder="tu@email.cl"></label><button class="button accent" type="submit">Avisarme si baja de precio</button>
+        <small>Al crear una alerta aceptas nuestra <a href="/privacidad">política de privacidad</a>. La activación requiere confirmar el correo y cada aviso incluirá una opción para cancelar.</small>
         <div id="alert-message" class="form-message" role="alert" aria-live="polite"></div>
       </form>
     </div></section>

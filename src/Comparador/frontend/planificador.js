@@ -3,6 +3,9 @@ const COMMUNES = { Tarapaca: ['Iquique'], 'Arica y Parinacota': ['Arica'], Antof
 let catalog = [];
 const normalize = (value = '') => value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9%]+/g, ' ').trim();
 const money = (value) => new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(value || 0);
+const escapeHtml = (value = '') => String(value).replace(/[&<>"']/g, (character) => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+}[character]));
 const LIMITS = {
   'planner-units-dose': { min: 0.1, max: 100, label: 'Unidades por dosis' },
   'planner-doses-day': { min: 0.1, max: 24, label: 'Dosis al día' },
@@ -41,11 +44,29 @@ Object.entries(LIMITS).forEach(([id, limit]) => {
 });
 
 async function load() {
-  const manifest = await fetch('./data/manifest.json').then((response) => response.json());
-  const entry = manifest.locations[`${$('#planner-region').value}|${$('#planner-commune').value}`];
-  catalog = entry ? await fetch(`./data/${entry.file}`).then((response) => response.json()) : [];
-  const names = [...new Set(catalog.filter((product) => product.available !== false && product.price > 0).map((product) => product.name))].sort();
-  $('#planner-products').innerHTML = names.map((name) => `<option value="${name.replace(/"/g, '&quot;')}"></option>`).join('');
+  $('#planner-result').innerHTML = '<span>Consultando catálogo…</span><strong>—</strong><p>Preparando las presentaciones disponibles.</p>';
+  try {
+    const manifest = await fetch('./data/manifest.json').then((response) => {
+      if (!response.ok) throw new Error('manifest');
+      return response.json();
+    });
+    const entry = manifest.locations[`${$('#planner-region').value}|${$('#planner-commune').value}`];
+    if (!entry) {
+      catalog = [];
+      $('#planner-result').innerHTML = '<span>No encontramos información</span><strong>—</strong><p>No existe catálogo para esta ubicación.</p>';
+      return;
+    }
+    const response = await fetch(`./data/${entry.file}`);
+    if (!response.ok) throw new Error('catalog');
+    catalog = await response.json();
+    const names = [...new Set(catalog.filter((product) => product.available !== false && product.price > 0).map((product) => product.name))].sort();
+    $('#planner-products').innerHTML = names.map((name) => `<option value="${name.replace(/"/g, '&quot;')}"></option>`).join('');
+    $('#planner-result').innerHTML = '<span>Catálogo disponible</span><strong>—</strong><p>Selecciona una presentación y completa la frecuencia.</p>';
+  } catch {
+    catalog = [];
+    $('#planner-result').innerHTML = '<span>No pudimos conectarnos</span><strong>—</strong><p>Comprueba tu conexión.</p><button id="planner-retry" type="button">Reintentar</button>';
+    $('#planner-retry')?.addEventListener('click', load);
+  }
 }
 
 function communes() {
@@ -70,6 +91,17 @@ function packageUnits(name) {
   const volumeMatches = [...text.matchAll(/\b(\d+(?:[.,]\d+)?)\s*ml\b/gi)];
   if (volumeMatches.length) return Number(volumeMatches.at(-1)[1].replace(',', '.'));
   return null;
+}
+
+function presentationUnit(name) {
+  const text = normalize(name);
+  const units = [
+    ['dosis', 'dosis'], ['inhalacion', 'inhalaciones'], ['puff', 'inhalaciones'],
+    ['comprimido', 'comprimidos'], ['tableta', 'tabletas'], ['capsula', 'cápsulas'],
+    ['sobre', 'sobres'], ['ampolla', 'ampollas'], ['parche', 'parches'],
+    ['ovulo', 'óvulos'], [' ml', 'mL'],
+  ];
+  return units.find(([token]) => text.includes(token))?.[1] || 'unidades';
 }
 
 function showError(message) {
@@ -117,8 +149,29 @@ $('#planner-form').addEventListener('submit', (event) => {
   const required = unitsDose * dosesDay * days;
   const packages = Math.ceil(required / pack);
   const total = packages * offer.price;
+  const purchased = packages * pack;
+  const remainder = Math.max(0, purchased - required);
+  const dailyCost = total / days;
+  const monthlyEquivalent = dailyCost * 30;
+  const unit = presentationUnit(offer.name);
   if (!Number.isSafeInteger(packages) || !Number.isSafeInteger(total) || packages > 10000) { showError('El cálculo excede un rango válido. Revisa las cantidades ingresadas.'); return; }
-  $('#planner-result').innerHTML = `<span>Costo estimado para ${days} días</span><strong>${money(total)}</strong><p>${packages} envase(s) · ${offer.name}<br>Mejor precio disponible: ${offer.pharmacy}</p>`;
+  const updated = offer.captured_at
+    ? new Intl.DateTimeFormat('es-CL', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(offer.captured_at))
+    : 'fecha desconocida';
+  $('#planner-result').innerHTML = `
+    <span>Costo total del tratamiento</span>
+    <strong>${money(total)}</strong>
+    <div class="planner-cost-grid">
+      <div><small>Costo promedio diario</small><b>${money(dailyCost)}</b></div>
+      <div><small>Equivalente para 30 días</small><b>${money(monthlyEquivalent)}</b></div>
+    </div>
+    <div class="planner-calculation">
+      <b>Cálculo paso a paso</b>
+      <p>${unitsDose.toLocaleString('es-CL')} ${unit} por dosis × ${dosesDay.toLocaleString('es-CL')} dosis al día × ${days} días = <strong>${required.toLocaleString('es-CL')} ${unit}</strong>.</p>
+      <p>${required.toLocaleString('es-CL')} ÷ ${pack.toLocaleString('es-CL')} por envase = ${(required / pack).toLocaleString('es-CL', { maximumFractionDigits: 2 })}; se redondea hacia arriba a <strong>${packages} envase${packages === 1 ? '' : 's'}</strong>.</p>
+      <p>Comprarás ${purchased.toLocaleString('es-CL')} ${unit}; sobrante estimado: <strong>${remainder.toLocaleString('es-CL')} ${unit}</strong>.</p>
+    </div>
+    <p class="planner-source"><b>${escapeHtml(offer.name)}</b><br>${escapeHtml(offer.pharmacy)} · ${money(offer.price)} por envase<br>Última verificación: ${escapeHtml(updated)}</p>`;
 });
 
 $('#planner-region').addEventListener('change', communes);

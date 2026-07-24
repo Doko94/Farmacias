@@ -182,6 +182,22 @@
   .cart-add{padding:12px}
   .cart-add>button{width:100%}
 }
+
+/* Planner result transparency */
+#planner-result{justify-content:flex-start;gap:12px}
+#planner-result>button{width:max-content;padding:9px 13px;border:1px solid rgba(255,255,255,.7);border-radius:9px;background:transparent;color:#fff;font-weight:800;cursor:pointer}
+.planner-cost-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.planner-cost-grid>div{display:grid;gap:3px;padding:10px;border-radius:10px;background:rgba(255,255,255,.14)}
+.planner-cost-grid small{color:#e7f7f2}
+.planner-cost-grid b{font-size:15px}
+.planner-calculation{display:grid;gap:7px;padding:13px;border-radius:12px;background:#fff;color:var(--ink)}
+.planner-calculation>b{font-size:12px}
+.planner-calculation p{margin:0!important;color:var(--muted)!important;font-size:10px;line-height:1.5}
+.planner-calculation strong{font-size:inherit}
+.planner-source{margin:0!important;color:#e5f5f1!important;font-size:10px;line-height:1.55}
+@media(max-width:600px){.planner-cost-grid{grid-template-columns:1fr}}
+.stock-legend i.unavailable{background:#d45a4e}
+.stock-legend i.unknown{background:#e8ad45}
 .legal-page{max-width:900px;padding-top:4rem;padding-bottom:5rem}
 .legal-page article{border:2px solid #13a797;border-radius:24px;padding:clamp(1.2rem,4vw,3rem);background:#fff;box-shadow:0 20px 45px rgba(6,71,100,.08)}
 .legal-page h1{color:#064764}.legal-page h2{margin-top:2rem;color:#087f72}

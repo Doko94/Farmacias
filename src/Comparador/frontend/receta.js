@@ -614,15 +614,26 @@ dropZone.addEventListener('drop', (event) => {
   processRecipe(event.dataTransfer.files[0]);
 });
 $('#recipe-optimize').addEventListener('click', optimizeReviewedMedicines);
-const recipeConsent = $('#recipe-consent');
 const recipeFile = $('#recipe-file-page');
+const privacyNotice = document.querySelector('.recipe-privacy-notice');
+if (privacyNotice) {
+  privacyNotice.innerHTML = `<strong>Tu receta y tu privacidad</strong>
+    <p><b>JPG, PNG y WEBP:</b> el reconocimiento se ejecuta localmente en este navegador. La imagen no se envía a AhorraMed ni se almacena.</p>
+    <p><b>PDF:</b> actualmente no se envía a un servicio externo; escribe los medicamentos manualmente o convierte la página en imagen.</p>
+    <p>Al eliminar la receta se limpian el archivo seleccionado, el texto detectado y los resultados de esta sesión. Oculta nombre, RUT, dirección, diagnóstico y datos del profesional cuando no sean necesarios.</p>
+    <label class="recipe-consent"><input id="recipe-consent" type="checkbox"> He leído esta información y autorizo el procesamiento local para identificar medicamentos.</label>
+    <div class="recipe-privacy-actions"><a href="/privacidad">Política de privacidad</a><a href="/terminos">Términos de uso</a><button id="recipe-delete" type="button">Eliminar mi receta</button></div>`;
+}
+const activeRecipeConsent = $('#recipe-consent');
 if (recipeFile) recipeFile.disabled = true;
-recipeConsent?.addEventListener('change', () => {
-  if (recipeFile) recipeFile.disabled = !recipeConsent.checked;
+activeRecipeConsent?.addEventListener('change', () => {
+  if (recipeFile) recipeFile.disabled = !activeRecipeConsent.checked;
 });
 $('#recipe-delete')?.addEventListener('click', () => {
   const file = $('#recipe-file-page');
   if (file) file.value = '';
+  if (activeRecipeConsent) activeRecipeConsent.checked = false;
+  if (recipeFile) recipeFile.disabled = true;
   reviewedMedicines = [];
   $('#recipe-results').innerHTML = '';
   renderReview('', [], 'La receta y el texto detectado se eliminaron de esta sesión.');

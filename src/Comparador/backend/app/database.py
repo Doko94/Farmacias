@@ -31,9 +31,12 @@ CREATE TABLE IF NOT EXISTS alerts (
     region TEXT NOT NULL,
     commune TEXT NOT NULL,
     enabled INTEGER NOT NULL DEFAULT 1,
+    confirmed INTEGER NOT NULL DEFAULT 0,
+    confirmation_token TEXT,
+    cancelled_at TEXT,
+    last_notified_at TEXT,
     created_at TEXT NOT NULL
 );
-
 CREATE TABLE IF NOT EXISTS alert_events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     alert_id INTEGER NOT NULL REFERENCES alerts(id),
@@ -50,6 +53,22 @@ def initialize(path: Path = DATABASE_PATH) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(path) as connection:
         connection.executescript(SCHEMA)
+        columns = {
+            row[1] for row in connection.execute("PRAGMA table_info(alerts)").fetchall()
+        }
+        migrations = {
+            "confirmed": "ALTER TABLE alerts ADD COLUMN confirmed INTEGER NOT NULL DEFAULT 0",
+            "confirmation_token": "ALTER TABLE alerts ADD COLUMN confirmation_token TEXT",
+            "cancelled_at": "ALTER TABLE alerts ADD COLUMN cancelled_at TEXT",
+            "last_notified_at": "ALTER TABLE alerts ADD COLUMN last_notified_at TEXT",
+        }
+        for column, statement in migrations.items():
+            if column not in columns:
+                connection.execute(statement)
+        connection.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_alert_confirmation_token "
+            "ON alerts(confirmation_token)"
+        )
 
 
 @contextmanager

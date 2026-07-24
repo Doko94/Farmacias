@@ -34,6 +34,12 @@ def _available(value: Any, default: bool | None = None) -> bool | None:
     return _boolean(value, bool(default)) if default is not None else None
 
 
+def _optional_boolean(value: Any) -> bool | None:
+    if value in (None, ""):
+        return None
+    return _boolean(value, False)
+
+
 def _pick(row: dict[str, str], *names: str) -> str:
     for name in names:
         if row.get(name) not in (None, ""):
@@ -86,6 +92,13 @@ class Catalog:
                         category=_pick(row, "category_path", "categoria_1"),
                         active_ingredient=_pick(row, "principio_activo"),
                         bioequivalent=_bioequivalent(row),
+                        official_bioequivalent=_optional_boolean(
+                            _pick(row, "bioequivalente_oficial", "official_bioequivalent")
+                        ),
+                        isp_registry=_pick(row, "registro_isp", "isp_registry"),
+                        administration_route=_pick(
+                            row, "via_administracion", "administration_route"
+                        ),
                         fonasa_price=_integer(
                             _pick(row, "fonasa_price", "precio_fonasa")
                         ),

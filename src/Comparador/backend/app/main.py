@@ -8,7 +8,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .database import initialize
 from .schemas import AlertRequest, OptimizationRequest, TreatmentRequest
-from .services.alerts import create_alert, evaluate_alerts
+from .services.alerts import (
+    AlertRateLimitError, cancel_alert, confirm_alert, create_alert, evaluate_alerts,
+)
 from .services.analytics import summary
 from .services.catalog import Catalog
 from .services.history import get_history
@@ -72,8 +74,14 @@ def bioequivalents(q: str, region: str = "Tarapaca", commune: str = "Iquique") -
     results = []
     for offer, score in matches:
         if offer.bioequivalent or "bioequival" in offer.normalized_name:
+            verification = (
+                "official"
+                if offer.official_bioequivalent is True and offer.isp_registry
+                else "pharmacy_reported"
+            )
             results.append({
                 **asdict(offer), "score": round(score, 3),
+                "bioequivalence_verification": verification,
                 "savings": baseline - offer.price,
                 "savings_pct": round((baseline - offer.price) * 100 / baseline) if baseline else 0,
             })
@@ -108,7 +116,24 @@ async def extract_recipe(file: UploadFile = File(...)) -> dict:
 
 @app.post("/api/alerts")
 def alerts(request: AlertRequest) -> dict:
-    return create_alert(request)
+    try:
+        return create_alert(request)
+    except AlertRateLimitError as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
+
+
+@app.post("/api/alerts/confirm/{token}")
+def confirm_price_alert(token: str) -> dict:
+    if not confirm_alert(token):
+        raise HTTPException(status_code=404, detail="Enlace inválido o alerta desactivada")
+    return {"status": "confirmed"}
+
+
+@app.delete("/api/alerts/{token}")
+def cancel_price_alert(token: str) -> dict:
+    if not cancel_alert(token):
+        raise HTTPException(status_code=404, detail="Enlace inválido o alerta desactivada")
+    return {"status": "cancelled"}
 
 
 @app.post("/api/alerts/evaluate")

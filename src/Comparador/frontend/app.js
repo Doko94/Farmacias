@@ -220,6 +220,7 @@ function renderResults(products, source='api') {
         :product.available===false?'Sin stock':'Stock desconocido';
     const {region,commune}=locationValue();
     const destination=safeUrl(product.url);
+    const productImage=safeUrl(product.image);
     const action=destination?`<a href="${destination}" target="_blank" rel="noopener noreferrer">Ver en farmacia →</a>`:'<span class="unavailable-link">Enlace no informado por la farmacia</span>';
     const logo=PHARMACY_LOGOS[product.pharmacy];
     const pharmacyClass=product.pharmacy==='Ahumada'
@@ -254,6 +255,56 @@ function renderResults(products, source='api') {
     const stockClass=product.available===true?'in-stock':product.available===false?'out-stock':'unknown-stock';
     const stockIcon=product.available===true?'●':product.available===false?'○':'?';
     card.innerHTML=`${isBest?'<span class="best-badge"><i>✓</i> Mejor opción</span>':''}${pharmacyTitle}${pharmacyNotice}<h3>${escapeHtml(product.name)}</h3><span>${escapeHtml(product.brand||'Marca no informada')}</span>${product.active_ingredient?`<small><b>Principio activo:</b> ${escapeHtml(product.active_ingredient)}</small>`:''}${badges}${fonasaPrice}<div><span class="price">${money(product.price)}</span> ${product.list_price?`<span class="old">${money(product.list_price)}</span>`:''}</div>${unitPrice}<div class="result-meta"><span class="stock-status ${stockClass}">${stockIcon} ${escapeHtml(stock)}</span><span>${escapeHtml(commune)}, ${escapeHtml(region)}</span><span class="freshness-badge ${age.level}" title="${escapeHtml(formatDate(product.captured_at))}">Última verificación: ${escapeHtml(age.label)}</span><span>Fuente: sitio web de ${escapeHtml(product.pharmacy)}</span></div>${stockWarning}${unknownStockWarning}${matchExplanation}<small>${isBest?'Coincidencia exacta · Menor precio disponible':'Coincidencia exacta · Comparado'}</small>${action}`;
+    const productHeading=card.querySelector('h3');
+    if(productHeading){
+      const summary=document.createElement('div');
+      summary.className='result-product-summary';
+      const visual=document.createElement('div');
+      visual.className='result-product-visual';
+      if(productImage){
+        const image=document.createElement('img');
+        image.className='result-product-image';
+        image.src=productImage;
+        image.alt='';
+        image.loading='lazy';
+        image.referrerPolicy='no-referrer';
+        image.addEventListener('error',()=>{visual.classList.add('image-error');image.remove()});
+        visual.appendChild(image);
+      }else{
+        visual.innerHTML='<span class="result-product-placeholder" aria-hidden="true">✚</span>';
+      }
+      productHeading.parentNode.insertBefore(summary,productHeading);
+      summary.appendChild(visual);
+      const copy=document.createElement('div');
+      summary.appendChild(copy);
+      copy.appendChild(productHeading);
+      while(summary.nextSibling&&summary.nextSibling.nodeType===1&&summary.nextSibling.matches('span,small')){
+        copy.appendChild(summary.nextSibling);
+      }
+    }
+    const trust=document.createElement('div');
+    trust.className='result-trust';
+    trust.innerHTML='<span>Datos públicos</span><span>Precio publicado por la farmacia</span>';
+    const explanation=card.querySelector('.match-explanation');
+    explanation?.after(trust);
+    const details=document.createElement('details');
+    details.className='result-details';
+    details.innerHTML='<summary>Ver más detalles</summary>';
+    const list=document.createElement('dl');
+    [
+      ['Presentación',product.name],
+      ['Concentración solicitada',requested.doses.map(value=>value.replace('|',' ')).join(' + ')||'No especificada'],
+      ['Forma solicitada',requested.forms.join(', ')||'No especificada'],
+      ['SKU',product.sku||'No informado'],
+      ['Última verificación',formatDate(product.captured_at)],
+    ].forEach(([term,value])=>{
+      const row=document.createElement('div');
+      const dt=document.createElement('dt');dt.textContent=term;
+      const dd=document.createElement('dd');dd.textContent=value;
+      row.append(dt,dd);list.appendChild(row);
+    });
+    details.appendChild(list);
+    trust.after(details);
     container.appendChild(card);
   });
   if(source==='static') {
@@ -687,8 +738,16 @@ $('#alert-form').addEventListener('submit',async(event)=>{
   $('#alert-query').value=query; $('#alert-email').value=email;
   ['#alert-query','#alert-email'].forEach(selector=>$(selector).removeAttribute('aria-invalid'));
   const {region,commune}=locationValue(); const body={email,query,target_price:null,region,commune};
-  try { await api('/api/alerts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); $('#alert-message').textContent='Alerta creada. Te avisaremos cuando detectemos una baja frente al precio anterior.'; }
-  catch { $('#alert-message').textContent='Alerta guardada en este dispositivo. Conecta la API para activar el envío de notificaciones.'; localStorage.setItem('farma_demo_alert',JSON.stringify(body)); }
+  try {
+    const response = await api('/api/alerts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    $('#alert-message').textContent=response.delivery_configured
+      ? 'Revisa tu correo para confirmar la alerta. Podrás cancelarla desde cada aviso.'
+      : 'Solicitud registrada, pero el envío de correo aún no está habilitado. No recibirás avisos hasta conectar el proveedor de email.';
+  }
+  catch {
+    $('#alert-message').textContent='Seguimiento guardado solo en este dispositivo. No se enviarán correos hasta conectar el servicio de alertas.';
+    localStorage.setItem('farma_demo_alert',JSON.stringify(body));
+  }
 });
 
 ['#alert-query','#alert-email'].forEach(selector=>$(selector).addEventListener('input',()=>{
