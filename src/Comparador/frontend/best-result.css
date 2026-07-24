@@ -678,6 +678,18 @@ h1 span {
 .search-suggestion-option b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.86rem}
 .search-suggestion-option small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#557580;font-size:.72rem}
 .search-suggestion-option strong{flex:none;color:#13a797;font-size:.82rem}
+.search-suggestion-meta{align-items:flex-end!important;flex:none!important}
+.search-suggestion-meta small{font-size:.65rem!important;font-weight:800}
+.search-suggestion-meta small.available{color:#168257}
+.search-suggestion-meta small.unavailable{color:#c5483d}
+.search-suggestion-meta small.unknown{color:#a56a00}
+.stock-status.unknown-stock{color:#6a7072;background:#eef1f2}
+.stock-warning--unknown{border-color:#aeb9bc;background:#f5f7f7;color:#526267}
+.unit-price{display:block;color:#456b77;font-weight:700}
+.match-explanation{display:block;padding:.65rem .75rem;border-left:3px solid #13a797;background:#eff9f7;color:#315c68;line-height:1.45}
+.location-row .external-seller-filter{margin-left:auto;font-weight:700;color:#466b77}
+.external-seller-filter input{accent-color:#13a797}
+@media(max-width:600px){.location-row .external-seller-filter{margin-left:0}}
 @media(max-width:600px){
   .hero .search-suggestions{top:calc(100% + 8px);max-height:310px}
   .hero .search-box .search-suggestion-option{grid-column:1/-1;padding:11px}

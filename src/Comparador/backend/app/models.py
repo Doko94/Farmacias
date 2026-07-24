@@ -20,7 +20,7 @@ class ProductOffer:
     active_ingredient: str = ""
     bioequivalent: bool = False
     fonasa_price: int | None = None
-    available: bool = True
+    available: bool | None = None
     stock_quantity: int | None = None
     captured_at: str = ""
     normalized_name: str = field(init=False)

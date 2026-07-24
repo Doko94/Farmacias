@@ -23,7 +23,7 @@ def _boolean(value: Any, default: bool = True) -> bool:
     return str(value).strip().casefold() in {"true", "1", "si", "sí", "yes"}
 
 
-def _available(value: Any, default: bool = True) -> bool:
+def _available(value: Any, default: bool | None = None) -> bool | None:
     if value in (None, ""):
         return default
     text = str(value).strip().casefold()
@@ -31,7 +31,7 @@ def _available(value: Any, default: bool = True) -> bool:
         numeric = _integer(value)
         if numeric is not None:
             return numeric > 0
-    return _boolean(value, default)
+    return _boolean(value, bool(default)) if default is not None else None
 
 
 def _pick(row: dict[str, str], *names: str) -> str:
@@ -89,7 +89,7 @@ class Catalog:
                         fonasa_price=_integer(
                             _pick(row, "fonasa_price", "precio_fonasa")
                         ),
-                        available=_available(available_field, True),
+                        available=_available(available_field),
                         stock_quantity=_integer(
                             _pick(row, "stock", "cantidad_stock_catalogo", "cantidad_stock")
                         ),
@@ -108,7 +108,7 @@ class Catalog:
                 continue
             if normalize(offer.commune) != normalize(commune):
                 continue
-            if not include_unavailable and not offer.available:
+            if not include_unavailable and offer.available is False:
                 continue
             candidate = " ".join((offer.name, offer.brand, offer.active_ingredient))
             if not structured_match(query, candidate):
@@ -124,7 +124,11 @@ class Catalog:
                 score = min(1.0, max(score, ingredient_score) + ingredient_bonus)
             if score >= 0.48:
                 results.append((offer, score))
-        results.sort(key=lambda item: (-item[1], item[0].price))
+        results.sort(key=lambda item: (
+            -item[1],
+            0 if item[0].available is True else 1,
+            item[0].price,
+        ))
         return results[:limit]
 
     def snapshot_history(self) -> int:

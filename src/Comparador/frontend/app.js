@@ -46,7 +46,7 @@ const safeUrl = (value) => {
     return url.protocol==='https:' ? url.href : '';
   } catch { return ''; }
 };
-const normalizeText = (value='') => value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9%]+/g,' ').trim();
+const normalizeText = (value='') => value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9%]+/g,' ').trim().split(/\s+/).map(term=>term==='acetaminofen'?'paracetamol':term).join(' ');
 const STRUCTURAL_WORDS = new Set(['mg','mcg','ug','g','ml','comprimido','comprimidos','tableta','tabletas','capsula','capsulas','sobre','sobres','ampolla','ampollas','unidad','unidades','dosis','parche','parches','ovulo','ovulos','oral','recubierto','recubiertos']);
 const normalizeDoseNumber = (value) => /^\d{1,3}(?:[.\s]\d{3})+$/.test(value) ? value.replace(/[.\s]/g,'') : value.replace(',','.');
 const signature = (value) => {
@@ -57,7 +57,15 @@ const signature = (value) => {
     return `${amount}|${unit}`;
   });
   const packages=[...text.matchAll(/\b(\d+)\s*(comprimidos?|tabletas?|capsulas?|sobres?|ampollas?|unidades?|dosis|parches?|ovulos?)\b/g)].map(match=>`${match[1]}|${match[2].replace(/s$/,'')}`);
-  return {doses,packages};
+  const formAliases={comprimidos:'comprimido',comprimido:'comprimido',comp:'comprimido',tabletas:'tableta',tableta:'tableta',capsulas:'capsula',capsula:'capsula',jarabes:'jarabe',jarabe:'jarabe',solucion:'solucion',suspension:'suspension',gotas:'gotas',crema:'crema',gel:'gel',spray:'spray',inhalador:'inhalador',sobres:'sobre',sobre:'sobre'};
+  const forms=[...text.matchAll(/\b(comprimidos?|comp|tabletas?|capsulas?|jarabes?|solucion|suspension|gotas|crema|gel|spray|inhalador|sobres?)\b/g)].map(match=>formAliases[match[1]]||match[1]);
+  return {doses,packages,forms:[...new Set(forms)]};
+};
+const closeToken=(requested,offered)=>requested===offered||(requested.length>=5&&Math.abs(requested.length-offered.length)<=1&&levenshtein(requested,offered)<=1);
+const levenshtein=(left,right)=>{
+  const row=Array.from({length:right.length+1},(_,index)=>index);
+  for(let i=1;i<=left.length;i++){let previous=row[0];row[0]=i;for(let j=1;j<=right.length;j++){const saved=row[j];row[j]=Math.min(row[j]+1,row[j-1]+1,previous+(left[i-1]===right[j-1]?0:1));previous=saved}}
+  return row[right.length];
 };
 const strictProductMatch = (query, product) => {
   const requested=signature(query); const offered=signature(`${product.name} ${product.active_ingredient||''}`);
@@ -66,7 +74,8 @@ const strictProductMatch = (query, product) => {
   return requested.doses.every(value=>offered.doses.includes(value))
     && (!requested.doses.length || offered.doses.filter(value=>/\|(mg|mcg|ui|%)$/.test(value)).every(value=>requested.doses.includes(value)))
     && requested.packages.every(value=>offered.packages.includes(value))
-    && requestedTerms.every(term=>offeredTerms.has(term));
+    && (!requested.forms.length || requested.forms.some(form=>offered.forms.includes(form)))
+    && requestedTerms.every(term=>[...offeredTerms].some(offeredTerm=>closeToken(term,offeredTerm)));
 };
 
 const staticCatalogCache = new Map();
@@ -105,7 +114,9 @@ async function searchStaticCatalog(query) {
   return products.filter(product=>strictProductMatch(query,product))
     .map(product=>({product,score:localScore(query,product)}))
     .filter(item=>item.score>=0.5)
-    .sort((a,b)=>b.score-a.score||Number(b.product.available)-Number(a.product.available)||a.product.price-b.product.price)
+    .sort((a,b)=>b.score-a.score
+      ||(a.product.available===true?0:a.product.available===false?2:1)-(b.product.available===true?0:b.product.available===false?2:1)
+      ||a.product.price-b.product.price)
     .slice(0,60).map(item=>item.product);
 }
 
@@ -185,19 +196,28 @@ async function api(path, options={}) {
 }
 
 function renderResults(products, source='api') {
+  if ($('#exclude-external')?.checked) {
+    const integrated=new Set(Object.keys(PHARMACY_LOGOS));
+    products=products.filter(product=>integrated.has(product.pharmacy));
+  }
   updateHeroSearch(products,$('#search-input').value.trim());
   $('#clear-results').hidden=false;
   $('#search-status').hidden = true;
   const container = $('#results'); container.innerHTML = '';
   document.querySelector('#demo-note')?.remove();
   if (!products.length) { $('#search-status').hidden=false; $('#search-status').innerHTML='<h3>Sin coincidencias</h3><p>Prueba con otro nombre o principio activo.</p>'; return; }
-  products.sort((a,b)=>Number(b.available)-Number(a.available)||a.price-b.price);
-  const bestIndex=products.findIndex(product=>product.available!==false);
+  const availabilityRank=product=>product.available===true?0:product.available===false?2:1;
+  products.sort((a,b)=>availabilityRank(a)-availabilityRank(b)||a.price-b.price);
+  const availableBest=products.findIndex(product=>product.available===true);
+  const bestIndex=availableBest>=0?availableBest:0;
   products.forEach((product,index)=>{
     const isBest=index===bestIndex;
     const card=document.createElement('article');
     card.className=`result-card${isBest?' result-card--best':''}`;
-    const stock=product.stock_quantity!==null&&product.stock_quantity!==undefined?`${product.stock_quantity} unidades informadas`:(product.available?'Stock disponible':'Sin stock');
+    const stock=product.stock_quantity!==null&&product.stock_quantity!==undefined
+      ?`${product.stock_quantity} unidades informadas`
+      :product.available===true?'Stock informado: disponible'
+        :product.available===false?'Sin stock':'Stock desconocido';
     const {region,commune}=locationValue();
     const destination=safeUrl(product.url);
     const action=destination?`<a href="${destination}" target="_blank" rel="noopener noreferrer">Ver en farmacia →</a>`:'<span class="unavailable-link">Enlace no informado por la farmacia</span>';
@@ -216,8 +236,24 @@ function renderResults(products, source='api') {
     const stockWarning=product.available===false||Number(product.stock_quantity)===0
       ?'<div class="stock-warning" role="note"><span aria-hidden="true">⚠</span><p><b>Disponibilidad por confirmar</b>Revisa directamente con la farmacia antes de acudir.</p></div>'
       :'';
+    const unknownStockWarning=product.available===null||product.available===undefined
+      ?'<div class="stock-warning stock-warning--unknown" role="note"><span aria-hidden="true">?</span><p><b>Stock desconocido</b>La farmacia no publicó disponibilidad para esta oferta.</p></div>'
+      :'';
     const age=freshness(product.captured_at);
-    card.innerHTML=`${isBest?'<span class="best-badge"><i>✓</i> Mejor opción</span>':''}${pharmacyTitle}${pharmacyNotice}<h3>${escapeHtml(product.name)}</h3><span>${escapeHtml(product.brand||'Marca no informada')}</span>${product.active_ingredient?`<small><b>Principio activo:</b> ${escapeHtml(product.active_ingredient)}</small>`:''}${badges}${fonasaPrice}<div><span class="price">${money(product.price)}</span> ${product.list_price?`<span class="old">${money(product.list_price)}</span>`:''}</div><div class="result-meta"><span class="stock-status ${product.available?'in-stock':'out-stock'}">${product.available?'●':'○'} ${escapeHtml(stock)}</span><span>${escapeHtml(commune)}, ${escapeHtml(region)}</span><span class="freshness-badge ${age.level}" title="${escapeHtml(formatDate(product.captured_at))}">Última verificación: ${escapeHtml(age.label)}</span><span>Fuente: sitio web de ${escapeHtml(product.pharmacy)}</span></div>${stockWarning}<small>${isBest?'Coincidencia exacta · Menor precio disponible':'Coincidencia exacta · Comparado'}</small>${action}`;
+    const productSignature=signature(product.name);
+    const packageCount=productSignature.packages[0]?Number(productSignature.packages[0].split('|')[0]):null;
+    const unitPrice=packageCount>1?`<small class="unit-price">Precio por unidad: ${money(product.price/packageCount)} · Envase de ${packageCount}</small>`:'';
+    const requested=signature($('#search-input').value);
+    const reasons=[
+      product.active_ingredient&&`Principio activo: ${product.active_ingredient}`,
+      requested.doses.length&&`Concentración: ${requested.doses.map(value=>value.replace('|',' ')).join(' + ')}`,
+      requested.forms.length&&`Forma: ${requested.forms.join(', ')}`,
+      requested.packages.length&&`Presentación: ${requested.packages.map(value=>value.replace('|',' ')).join(', ')}`,
+    ].filter(Boolean);
+    const matchExplanation=`<small class="match-explanation"><b>Por qué coincide:</b> ${escapeHtml(reasons.join(' · ')||'nombre o marca del producto')}</small>`;
+    const stockClass=product.available===true?'in-stock':product.available===false?'out-stock':'unknown-stock';
+    const stockIcon=product.available===true?'●':product.available===false?'○':'?';
+    card.innerHTML=`${isBest?'<span class="best-badge"><i>✓</i> Mejor opción</span>':''}${pharmacyTitle}${pharmacyNotice}<h3>${escapeHtml(product.name)}</h3><span>${escapeHtml(product.brand||'Marca no informada')}</span>${product.active_ingredient?`<small><b>Principio activo:</b> ${escapeHtml(product.active_ingredient)}</small>`:''}${badges}${fonasaPrice}<div><span class="price">${money(product.price)}</span> ${product.list_price?`<span class="old">${money(product.list_price)}</span>`:''}</div>${unitPrice}<div class="result-meta"><span class="stock-status ${stockClass}">${stockIcon} ${escapeHtml(stock)}</span><span>${escapeHtml(commune)}, ${escapeHtml(region)}</span><span class="freshness-badge ${age.level}" title="${escapeHtml(formatDate(product.captured_at))}">Última verificación: ${escapeHtml(age.label)}</span><span>Fuente: sitio web de ${escapeHtml(product.pharmacy)}</span></div>${stockWarning}${unknownStockWarning}${matchExplanation}<small>${isBest?'Coincidencia exacta · Menor precio disponible':'Coincidencia exacta · Comparado'}</small>${action}`;
     container.appendChild(card);
   });
   if(source==='static') {
@@ -291,7 +327,11 @@ async function refreshSearchSuggestions(rawQuery) {
     const searchable = autocompleteText(`${product.name} ${product.brand || ''} ${product.active_ingredient || ''}`);
     const terms = new Set(searchable.split(' '));
     const matched = queryTerms.filter(term => terms.has(term) || [...terms].some(candidate => (
-      term.length >= 3 && (candidate.startsWith(term) || term.startsWith(candidate))
+      term.length >= 3 && (
+        candidate.startsWith(term)
+        || term.startsWith(candidate)
+        || closeToken(term, candidate)
+      )
     ))).length;
     if (matched !== queryTerms.length) return;
     const key = normalizeText(product.name);
@@ -313,8 +353,16 @@ async function refreshSearchSuggestions(rawQuery) {
   }
   box.innerHTML = searchSuggestionItems.map((product, index) => `
     <button id="search-suggestion-${index}" class="search-suggestion-option" type="button" role="option" aria-selected="false" data-index="${index}">
-      <span><b>${escapeHtml(product.name)}</b><small>${escapeHtml(product.brand || product.active_ingredient || product.pharmacy)}</small></span>
-      <strong>${money(product.price)}</strong>
+      <span><b>${escapeHtml(product.name)}</b><small>${escapeHtml([
+        product.brand || product.active_ingredient,
+        product.pharmacy,
+      ].filter(Boolean).join(' · '))}</small></span>
+      <span class="search-suggestion-meta">
+        <strong>${money(product.price)}</strong>
+        <small class="${product.available === true ? 'available' : product.available === false ? 'unavailable' : 'unknown'}">${
+          product.available === true ? 'Con stock' : product.available === false ? 'Sin stock' : 'Stock por confirmar'
+        }</small>
+      </span>
     </button>`).join('');
   box.hidden = false;
   activeSearchSuggestion = -1;
