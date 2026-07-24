@@ -92,7 +92,11 @@ def optimize(request: OptimizationRequest) -> dict:
 
 @app.post("/api/recipes/extract")
 async def extract_recipe(file: UploadFile = File(...)) -> dict:
+    if not file.filename or len(file.filename) > 180:
+        raise HTTPException(422, "El nombre del archivo no es valido")
     content = await file.read()
+    if not content:
+        raise HTTPException(422, "El archivo esta vacio")
     if len(content) > 10 * 1024 * 1024:
         raise HTTPException(413, "El archivo supera el limite de 10 MB")
     try:

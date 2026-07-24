@@ -74,6 +74,23 @@ const tokenMatches = (queryToken, productTokens) => productTokens.some((productT
   || productToken.length >= 5 && queryToken.startsWith(productToken)
 ));
 
+function doseSignature(value = '') {
+  return [...canonicalSearch(value).matchAll(/(\d+(?:[.,]\d+)?)(mg|mcg|ug|g|ml|ui|iu)\b/g)]
+    .map((match) => {
+      let amount = Number(match[1].replace(',', '.'));
+      let unit = match[2];
+      if (unit === 'g') { amount *= 1000; unit = 'mg'; }
+      if (unit === 'ug') unit = 'mcg';
+      if (unit === 'iu') unit = 'ui';
+      return `${amount}${unit}`;
+    });
+}
+
+function packageSignature(value = '') {
+  const match = canonicalSearch(value).match(/\b(?:x\s*)?(\d{1,4})\s*(comprimidos?|comp|capsulas?|caps|sobres?|dosis|unidades?|und)\b/);
+  return match ? Number(match[1]) : null;
+}
+
 function catalogMatchScore(query, product) {
   const queryTokens = searchTokens(query);
   if (!queryTokens.length || !(product.price > 0)) return 0;
@@ -81,6 +98,13 @@ function catalogMatchScore(query, product) {
   const matched = queryTokens.filter((term) => tokenMatches(term, productTokens));
   const doseTokens = queryTokens.filter((term) => /\d(?:mg|mcg|ug|ml|g|ui|iu|%)$/.test(term));
   if (doseTokens.some((term) => !tokenMatches(term, productTokens))) return 0;
+  const requestedDoses = doseSignature(query);
+  const productDoses = doseSignature(`${product.name} ${product.active_ingredient || ''}`);
+  if (requestedDoses.length && requestedDoses.some((dose) => !productDoses.includes(dose))) return 0;
+  if (requestedDoses.length && productDoses.filter((dose) => /(mg|mcg|ui)$/.test(dose)).some((dose) => !requestedDoses.includes(dose))) return 0;
+  const requestedPackage = packageSignature(query);
+  const productPackage = packageSignature(product.name);
+  if (requestedPackage && productPackage && requestedPackage !== productPackage) return 0;
   if (!tokenMatches(queryTokens[0], productTokens)) return 0;
   const required = queryTokens.length === 1 ? 1 : Math.max(2, Math.ceil(queryTokens.length * .6));
   if (matched.length < required) return 0;
@@ -305,6 +329,9 @@ function recipeLineHtml(line) {
     </li>`;
   }
   const offer = line.offer;
+  const verified = offer.captured_at
+    ? new Intl.DateTimeFormat('es-CL', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(offer.captured_at))
+    : 'fecha desconocida';
   const productUrl = safeExternalUrl(offer.url);
   const link = productUrl
     ? `<a href="${escapeHtml(productUrl)}" target="_blank" rel="noopener">Ver producto</a>`
@@ -314,7 +341,8 @@ function recipeLineHtml(line) {
     <div>
       <b>${escapeHtml(line.query)}</b>
       <span>${escapeHtml(offer.name)}</span>
-      <small>${offer.available === false ? 'Disponibilidad por confirmar' : 'Disponible según la última actualización'}${offer.brand ? ` · ${escapeHtml(offer.brand)}` : ''}</small>
+      <small>${offer.available === false ? 'Disponibilidad por confirmar' : 'Stock informado: disponible'}${offer.brand ? ` · ${escapeHtml(offer.brand)}` : ''}</small>
+      <small>Última verificación: ${escapeHtml(verified)} · Fuente: sitio web de ${escapeHtml(offer.pharmacy || 'la farmacia')}</small>
       ${link}
     </div>
     <strong>${money(offer.price)}</strong>
@@ -396,6 +424,10 @@ function activeMultiPharmacies() {
 
 async function prepareImage(file) {
   const bitmap = await createImageBitmap(file);
+  if (bitmap.width * bitmap.height > 25_000_000) {
+    bitmap.close();
+    throw new Error('La imagen supera el límite de 25 megapíxeles.');
+  }
   const scale = Math.min(4, Math.max(2, 1800 / bitmap.width));
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(bitmap.width * scale);
@@ -418,8 +450,36 @@ async function prepareImage(file) {
 async function processRecipe(file) {
   const output = $('#recipe-page-output');
   if (!file) return;
+  if (!$('#recipe-consent')?.checked) {
+    renderReview('', [], 'Debes aceptar el procesamiento local antes de seleccionar una receta.');
+    $('#recipe-consent')?.focus();
+    return;
+  }
+  if (file.size === 0) {
+    renderReview('', [], 'El archivo está vacío.');
+    return;
+  }
   if (file.size > 10 * 1024 * 1024) {
     renderReview('', [], 'El archivo supera el máximo de 10 MB. Puedes agregar los medicamentos manualmente.');
+    return;
+  }
+  const name = file.name.toLowerCase();
+  const extensions = name.match(/\.[a-z0-9]+/g) || [];
+  if (extensions.length !== 1 || !/\.(pdf|png|jpe?g|webp)$/.test(name)) {
+    renderReview('', [], 'Nombre o extensión no permitidos. Usa un archivo PDF, PNG, JPG o WEBP sin extensiones dobles.');
+    return;
+  }
+  const bytes = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+  const isPdf = bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46;
+  const isJpeg = bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+  const isPng = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47;
+  const isWebp = String.fromCharCode(...bytes.slice(0, 4)) === 'RIFF'
+    && String.fromCharCode(...bytes.slice(8, 12)) === 'WEBP';
+  const signatureMatches = name.endsWith('.pdf') ? isPdf
+    : /\.jpe?g$/.test(name) ? isJpeg
+      : name.endsWith('.png') ? isPng : isWebp;
+  if (!signatureMatches) {
+    renderReview('', [], 'El contenido real del archivo no coincide con su extensión.');
     return;
   }
   if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
@@ -554,6 +614,19 @@ dropZone.addEventListener('drop', (event) => {
   processRecipe(event.dataTransfer.files[0]);
 });
 $('#recipe-optimize').addEventListener('click', optimizeReviewedMedicines);
+const recipeConsent = $('#recipe-consent');
+const recipeFile = $('#recipe-file-page');
+if (recipeFile) recipeFile.disabled = true;
+recipeConsent?.addEventListener('change', () => {
+  if (recipeFile) recipeFile.disabled = !recipeConsent.checked;
+});
+$('#recipe-delete')?.addEventListener('click', () => {
+  const file = $('#recipe-file-page');
+  if (file) file.value = '';
+  reviewedMedicines = [];
+  $('#recipe-results').innerHTML = '';
+  renderReview('', [], 'La receta y el texto detectado se eliminaron de esta sesión.');
+});
 $('#recipe-region').addEventListener('change', refreshCommunes);
 $('#recipe-commune').addEventListener('change', loadCatalog);
 $('.menu-btn').addEventListener('click', () => $('.nav-links').classList.toggle('open'));

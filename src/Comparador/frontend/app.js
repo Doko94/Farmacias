@@ -31,6 +31,15 @@ const formatDate = (value) => {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('es-CL',{dateStyle:'medium',timeStyle:'short'}).format(date);
 };
+const freshness = (value) => {
+  if (!value) return { level: 'unknown', label: 'Fecha desconocida' };
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return { level: 'unknown', label: 'Fecha desconocida' };
+  const hours = Math.max(0, (Date.now() - date.getTime()) / 36e5);
+  const relative = hours < 1 ? `hace ${Math.max(1, Math.round(hours * 60))} min`
+    : hours < 48 ? `hace ${Math.round(hours)} h` : `hace ${Math.round(hours / 24)} días`;
+  return { level: hours < 6 ? 'fresh' : hours <= 24 ? 'warning' : 'stale', label: relative };
+};
 const safeUrl = (value) => {
   try {
     const url=new URL(value);
@@ -42,7 +51,11 @@ const STRUCTURAL_WORDS = new Set(['mg','mcg','ug','g','ml','comprimido','comprim
 const normalizeDoseNumber = (value) => /^\d{1,3}(?:[.\s]\d{3})+$/.test(value) ? value.replace(/[.\s]/g,'') : value.replace(',','.');
 const signature = (value) => {
   const text=value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-  const doses=[...text.matchAll(/(\d{1,3}(?:[.\s]\d{3})+|\d+(?:[.,]\d+)?)\s*(mg|mcg|ug|g|ml|ui|iu|u|%)(?=\b)/g)].map(match=>`${normalizeDoseNumber(match[1])}|${match[2]==='ug'?'mcg':['iu','u'].includes(match[2])?'ui':match[2]}`);
+  const doses=[...text.matchAll(/(\d{1,3}(?:[.\s]\d{3})+|\d+(?:[.,]\d+)?)\s*(mg|mcg|ug|g|ml|ui|iu|u|%)(?=\b)/g)].map(match=>{
+    let amount=Number(normalizeDoseNumber(match[1])); let unit=match[2];
+    if(unit==='g'){amount*=1000;unit='mg'} if(unit==='ug')unit='mcg'; if(['iu','u'].includes(unit))unit='ui';
+    return `${amount}|${unit}`;
+  });
   const packages=[...text.matchAll(/\b(\d+)\s*(comprimidos?|tabletas?|capsulas?|sobres?|ampollas?|unidades?|dosis|parches?|ovulos?)\b/g)].map(match=>`${match[1]}|${match[2].replace(/s$/,'')}`);
   return {doses,packages};
 };
@@ -51,6 +64,7 @@ const strictProductMatch = (query, product) => {
   const requestedTerms=normalizeText(query).split(' ').filter(term=>term.length>1&&!/^\d/.test(term)&&!STRUCTURAL_WORDS.has(term));
   const offeredTerms=new Set(normalizeText(`${product.name} ${product.brand||''} ${product.active_ingredient||''}`).split(' '));
   return requested.doses.every(value=>offered.doses.includes(value))
+    && (!requested.doses.length || offered.doses.filter(value=>/\|(mg|mcg|ui|%)$/.test(value)).every(value=>requested.doses.includes(value)))
     && requested.packages.every(value=>offered.packages.includes(value))
     && requestedTerms.every(term=>offeredTerms.has(term));
 };
@@ -202,10 +216,15 @@ function renderResults(products, source='api') {
     const stockWarning=product.available===false||Number(product.stock_quantity)===0
       ?'<div class="stock-warning" role="note"><span aria-hidden="true">⚠</span><p><b>Disponibilidad por confirmar</b>Revisa directamente con la farmacia antes de acudir.</p></div>'
       :'';
-    card.innerHTML=`${isBest?'<span class="best-badge"><i>✓</i> Mejor opción</span>':''}${pharmacyTitle}${pharmacyNotice}<h3>${escapeHtml(product.name)}</h3><span>${escapeHtml(product.brand||'Marca no informada')}</span>${product.active_ingredient?`<small><b>Principio activo:</b> ${escapeHtml(product.active_ingredient)}</small>`:''}${badges}${fonasaPrice}<div><span class="price">${money(product.price)}</span> ${product.list_price?`<span class="old">${money(product.list_price)}</span>`:''}</div><div class="result-meta"><span class="stock-status ${product.available?'in-stock':'out-stock'}">${product.available?'●':'○'} ${escapeHtml(stock)}</span><span>${escapeHtml(commune)}, ${escapeHtml(region)}</span><span>Actualizado: ${escapeHtml(formatDate(product.captured_at))}</span></div>${stockWarning}<small>${isBest?'Coincidencia exacta · Menor precio disponible':'Coincidencia exacta · Comparado'}</small>${action}`;
+    const age=freshness(product.captured_at);
+    card.innerHTML=`${isBest?'<span class="best-badge"><i>✓</i> Mejor opción</span>':''}${pharmacyTitle}${pharmacyNotice}<h3>${escapeHtml(product.name)}</h3><span>${escapeHtml(product.brand||'Marca no informada')}</span>${product.active_ingredient?`<small><b>Principio activo:</b> ${escapeHtml(product.active_ingredient)}</small>`:''}${badges}${fonasaPrice}<div><span class="price">${money(product.price)}</span> ${product.list_price?`<span class="old">${money(product.list_price)}</span>`:''}</div><div class="result-meta"><span class="stock-status ${product.available?'in-stock':'out-stock'}">${product.available?'●':'○'} ${escapeHtml(stock)}</span><span>${escapeHtml(commune)}, ${escapeHtml(region)}</span><span class="freshness-badge ${age.level}" title="${escapeHtml(formatDate(product.captured_at))}">Última verificación: ${escapeHtml(age.label)}</span><span>Fuente: sitio web de ${escapeHtml(product.pharmacy)}</span></div>${stockWarning}<small>${isBest?'Coincidencia exacta · Menor precio disponible':'Coincidencia exacta · Comparado'}</small>${action}`;
     container.appendChild(card);
   });
-  if(source==='static') container.insertAdjacentHTML('beforebegin','<p id="demo-note" class="tool-output"><b>Información de precios:</b> última actualización disponible para la ubicación seleccionada.</p>');
+  if(source==='static') {
+    const latest=products.map(product=>product.captured_at).filter(Boolean).sort().at(-1);
+    const age=freshness(latest);
+    container.insertAdjacentHTML('beforebegin',`<p id="demo-note" class="tool-output"><b>Información de precios:</b> última verificación del catálogo ${escapeHtml(age.label)}${latest?` · ${escapeHtml(formatDate(latest))}`:''}.</p>`);
+  }
 }
 
 function renderApiUnavailable(query) {

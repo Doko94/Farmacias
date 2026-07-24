@@ -4,6 +4,10 @@ import io
 import re
 from pathlib import Path
 
+MAX_IMAGE_PIXELS = 25_000_000
+MAX_PDF_PAGES = 10
+ALLOWED_SUFFIXES = {".pdf", ".png", ".jpg", ".jpeg", ".webp"}
+
 
 MEDICINE_LINE = re.compile(
     r"(?P<name>[A-Za-zÁÉÍÓÚÑáéíóúñ][A-Za-zÁÉÍÓÚÑáéíóúñ\s-]{2,})"
@@ -52,22 +56,58 @@ def medication_search_query(value: str) -> str:
 
 
 def extract_text(filename: str, content: bytes) -> tuple[str, str]:
-    suffix = Path(filename).suffix.casefold()
+    path = Path(filename)
+    suffix = path.suffix.casefold()
+    if suffix not in ALLOWED_SUFFIXES:
+        raise ValueError("Formato no soportado. Usa PDF, PNG, JPG, JPEG o WEBP")
+    if Path(path.stem).suffix:
+        raise ValueError("El nombre contiene una extension doble y fue rechazado")
     if suffix == ".pdf":
+        if not content.startswith(b"%PDF-"):
+            raise ValueError("El contenido no corresponde a un PDF valido")
         try:
             from pypdf import PdfReader
         except ImportError as exc:
             raise RuntimeError("Instala pypdf para procesar recetas PDF") from exc
-        reader = PdfReader(io.BytesIO(content))
+        try:
+            reader = PdfReader(io.BytesIO(content), strict=True)
+            if reader.is_encrypted:
+                raise ValueError("No se admiten PDF protegidos o cifrados")
+            if not 1 <= len(reader.pages) <= MAX_PDF_PAGES:
+                raise ValueError(f"El PDF debe contener entre 1 y {MAX_PDF_PAGES} paginas")
+        except ValueError:
+            raise
+        except Exception as exc:
+            raise ValueError("El PDF esta corrupto o no puede procesarse") from exc
         return "\n".join(page.extract_text() or "" for page in reader.pages), "pdf"
     if suffix in {".png", ".jpg", ".jpeg", ".webp"}:
+        signatures = {
+            ".png": content.startswith(b"\x89PNG\r\n\x1a\n"),
+            ".jpg": content.startswith(b"\xff\xd8\xff"),
+            ".jpeg": content.startswith(b"\xff\xd8\xff"),
+            ".webp": len(content) >= 12 and content[:4] == b"RIFF" and content[8:12] == b"WEBP",
+        }
+        if not signatures[suffix]:
+            raise ValueError("La firma del archivo no coincide con su formato")
         try:
             import pytesseract
-            from PIL import Image
+            from PIL import Image, UnidentifiedImageError
         except ImportError as exc:
             raise RuntimeError("Instala pillow y pytesseract para procesar fotos") from exc
-        return pytesseract.image_to_string(Image.open(io.BytesIO(content)), lang="spa"), "ocr"
-    raise ValueError("Formato no soportado. Usa PDF, PNG, JPG, JPEG o WEBP")
+        try:
+            with Image.open(io.BytesIO(content)) as image:
+                image.verify()
+            with Image.open(io.BytesIO(content)) as image:
+                width, height = image.size
+                if width <= 0 or height <= 0 or width * height > MAX_IMAGE_PIXELS:
+                    raise ValueError("La imagen supera el limite seguro de 25 megapixeles")
+                image.load()
+                return pytesseract.image_to_string(image, lang="spa"), "ocr"
+        except ValueError:
+            raise
+        except (UnidentifiedImageError, OSError) as exc:
+            raise ValueError("La imagen esta corrupta o no puede procesarse") from exc
+    raise ValueError("Formato no soportado")
 
 
 def parse_medicines(text: str) -> list[dict]:
