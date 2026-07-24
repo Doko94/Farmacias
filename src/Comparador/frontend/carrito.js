@@ -363,11 +363,13 @@ $('#cart-commune').addEventListener('change', async () => {
   renderCart();
 });
 
+if (!$('#cart-shipping')) {
 const shippingControls = document.createElement('div');
 shippingControls.className = 'cart-shipping-controls';
 shippingControls.innerHTML = `<label><input id="cart-shipping" type="checkbox"> Incluir despacho estimado</label>
   <label>Costo por farmacia <input id="cart-shipping-cost" type="number" min="0" max="30000" step="100" value="3990"></label>
   <small>En una compra dividida se suma un despacho por farmacia. Déjalo desactivado si retirarás presencialmente.</small>`;
 document.querySelector('.cart-location').appendChild(shippingControls);
+}
 renderCart();
 updateCommunes();

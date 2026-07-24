@@ -1,39 +1,57 @@
 (() => {
   const tools = [
-    ['receta.html', 'Receta'],
-    ['planificador.html', 'Planificador'],
-    ['historial.html', 'Historial'],
-    ['bioequivalentes.html', 'Bioequivalentes'],
-    ['dashboard.html', 'Dashboard'],
-    ['index.html#alertas', 'Alertas'],
+    ['/receta', 'Receta'],
+    ['/planificador', 'Planificador'],
+    ['/historial', 'Historial'],
+    ['/bioequivalentes', 'Bioequivalentes'],
+    ['/dashboard', 'Dashboard'],
+    ['/#alertas', 'Alertas'],
   ];
 
+  const pageFromHref = (href) => {
+    const pathname = href.split('#')[0].replace(/\/+$/, '');
+    return pathname.split('/').pop() || 'index';
+  };
+
   function initNavigation() {
+    const legacyPage = location.pathname.match(/\/([a-z0-9-]+)\.html$/i);
+    if (legacyPage) {
+      const cleanPath = legacyPage[1].toLowerCase() === 'index' ? '/' : `/${legacyPage[1]}`;
+      history.replaceState(null, '', `${cleanPath}${location.search}${location.hash}`);
+    }
     const nav = document.querySelector('.nav');
     const links = nav?.querySelector('.nav-links');
     const button = nav?.querySelector('.menu-btn');
     if (!nav || !links || !button) return;
-    const page = location.pathname.split('/').pop() || 'index.html';
+    const page = pageFromHref(location.pathname);
     const active = (href) => {
-      const target = href.split('#')[0] || 'index.html';
-      return target === page;
+      return pageFromHref(href) === page;
     };
-    const toolPages = tools.map(([href]) => href.split('#')[0]).filter((href) => href !== 'index.html');
+    const toolPages = tools.map(([href]) => pageFromHref(href)).filter((href) => href !== 'index');
     links.innerHTML = `
-      <a href="index.html"${page === 'index.html' ? ' aria-current="page"' : ''}>Inicio</a>
-      <a href="index.html#comparar">Comparar</a>
-      <a href="carrito.html"${page === 'carrito.html' ? ' aria-current="page"' : ''}>Carrito</a>
+      <a href="/"${page === 'index' ? ' aria-current="page"' : ''}>Inicio</a>
+      <a href="/#comparar">Comparar</a>
+      <a href="/carrito"${page === 'carrito' ? ' aria-current="page"' : ''}>Carrito</a>
       <span class="nav-dropdown">
-        <a href="index.html#herramientas"${toolPages.includes(page) ? ' aria-current="page"' : ''}>Herramientas</a>
+        <a href="/#herramientas"${toolPages.includes(page) ? ' aria-current="page"' : ''}>Herramientas</a>
         <span class="nav-tool-menu" aria-label="Herramientas disponibles">
           ${tools.map(([href, label]) => `<a href="${href}"${active(href) ? ' aria-current="page"' : ''}>${label}</a>`).join('')}
         </span>
       </span>
-      <a class="nav-cta" href="farmacias-turno.html"${page === 'farmacias-turno.html' ? ' aria-current="page"' : ''}>Farmacias de turno</a>`;
+      <a class="nav-cta" href="/farmacias-turno"${page === 'farmacias-turno' ? ' aria-current="page"' : ''}>Farmacias de turno</a>`;
     button.setAttribute('aria-label', 'Abrir menú');
     button.setAttribute('aria-controls', 'primary-navigation');
     button.setAttribute('aria-expanded', 'false');
     links.id = 'primary-navigation';
+
+    document.querySelectorAll('a[href]').forEach((link) => {
+      const href = link.getAttribute('href');
+      if (!href || /^(?:https?:|mailto:|tel:|#)/i.test(href)) return;
+      const match = href.match(/^(?:\.\/)?([a-z0-9-]+)\.html(#[^ ]*)?$/i);
+      if (!match) return;
+      const route = match[1].toLowerCase() === 'index' ? '/' : `/${match[1]}`;
+      link.setAttribute('href', `${route}${match[2] || ''}`);
+    });
 
     let previousFocus = null;
     const focusables = () => [...links.querySelectorAll('a[href]')].filter((item) => item.offsetParent !== null);

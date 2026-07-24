@@ -11,6 +11,56 @@
     Permissions-Policy = "camera=(), microphone=(), geolocation=(self)"
 
 [[redirects]]
+  from = "/carrito"
+  to = "/carrito.html"
+  status = 200
+
+[[redirects]]
+  from = "/receta"
+  to = "/receta.html"
+  status = 200
+
+[[redirects]]
+  from = "/planificador"
+  to = "/planificador.html"
+  status = 200
+
+[[redirects]]
+  from = "/historial"
+  to = "/historial.html"
+  status = 200
+
+[[redirects]]
+  from = "/bioequivalentes"
+  to = "/bioequivalentes.html"
+  status = 200
+
+[[redirects]]
+  from = "/dashboard"
+  to = "/dashboard.html"
+  status = 200
+
+[[redirects]]
+  from = "/desarrolladores"
+  to = "/desarrolladores.html"
+  status = 200
+
+[[redirects]]
+  from = "/farmacias-turno"
+  to = "/farmacias-turno.html"
+  status = 200
+
+[[redirects]]
+  from = "/privacidad"
+  to = "/privacidad.html"
+  status = 200
+
+[[redirects]]
+  from = "/terminos"
+  to = "/terminos.html"
+  status = 200
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
