@@ -109,7 +109,7 @@ function showStatus(message) {
 function renderCart() {
   const container = $('#cart-items');
   container.innerHTML = '';
-  if (!cart.length) container.innerHTML = '<div class="cart-empty">Todavía no agregas productos.</div>';
+  if (!cart.length) container.innerHTML = '<div class="cart-empty"><span aria-hidden="true">🛒</span><b>Tu carrito está vacío</b><small>Busca un producto arriba y presiona “Agregar”.</small></div>';
   cart.forEach((item, index) => {
     const row = document.createElement('article');
     row.innerHTML = `<div><b>${escape(item.query)}</b><span>Cantidad: ${item.quantity}</span></div>
