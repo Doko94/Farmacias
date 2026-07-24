@@ -235,8 +235,99 @@ function renderApiUnavailable(query) {
   status.innerHTML=`<div class="empty-icon">!</div><h3>No fue posible cargar el catálogo</h3><p>La información de precios no está disponible temporalmente para “${escapeHtml(query)}”. Intenta nuevamente más tarde.</p>`;
 }
 
+let searchSuggestionTimer;
+let searchSuggestionItems = [];
+let activeSearchSuggestion = -1;
+let searchSuggestionRequest = 0;
+
+function closeSearchSuggestions() {
+  searchSuggestionRequest += 1;
+  const box = $('#search-suggestions');
+  box.hidden = true;
+  box.innerHTML = '';
+  searchSuggestionItems = [];
+  activeSearchSuggestion = -1;
+  $('#search-input').setAttribute('aria-expanded', 'false');
+  $('#search-input').removeAttribute('aria-activedescendant');
+}
+
+function selectSearchSuggestion(index) {
+  const product = searchSuggestionItems[index];
+  if (!product) return;
+  $('#search-input').value = product.name;
+  closeSearchSuggestions();
+  $('#search-input').focus();
+}
+
+function paintActiveSearchSuggestion() {
+  const options = [...document.querySelectorAll('.search-suggestion-option')];
+  options.forEach((option, index) => {
+    const active = index === activeSearchSuggestion;
+    option.classList.toggle('active', active);
+    option.setAttribute('aria-selected', String(active));
+  });
+  const active = options[activeSearchSuggestion];
+  if (active) {
+    $('#search-input').setAttribute('aria-activedescendant', active.id);
+    active.scrollIntoView({ block: 'nearest' });
+  } else {
+    $('#search-input').removeAttribute('aria-activedescendant');
+  }
+}
+
+async function refreshSearchSuggestions(rawQuery) {
+  const requestId = ++searchSuggestionRequest;
+  const validation = validateSearchQuery(rawQuery);
+  if (validation.error) {
+    closeSearchSuggestions();
+    return;
+  }
+  const autocompleteText = value => normalizeText(String(value).replace(/(\d+(?:[.,]\d+)?)\s*(mg|mcg|ug|g|ml|ui|iu|%)/gi, '$1$2'));
+  const queryTerms = autocompleteText(validation.value).split(' ').filter(Boolean);
+  const products = await loadStaticCatalog();
+  if (requestId !== searchSuggestionRequest || $('#search-input').value !== rawQuery) return;
+  const grouped = new Map();
+  products.filter(product => product.price > 0).forEach(product => {
+    const searchable = autocompleteText(`${product.name} ${product.brand || ''} ${product.active_ingredient || ''}`);
+    const terms = new Set(searchable.split(' '));
+    const matched = queryTerms.filter(term => terms.has(term) || [...terms].some(candidate => (
+      term.length >= 3 && (candidate.startsWith(term) || term.startsWith(candidate))
+    ))).length;
+    if (matched !== queryTerms.length) return;
+    const key = normalizeText(product.name);
+    const previous = grouped.get(key);
+    const score = matched * 20
+      + (normalizeText(product.name).startsWith(queryTerms[0]) ? 8 : 0)
+      + (product.available !== false ? 3 : 0);
+    if (!previous || score > previous.score || (score === previous.score && product.price < previous.price)) {
+      grouped.set(key, { ...product, score });
+    }
+  });
+  searchSuggestionItems = [...grouped.values()]
+    .sort((left, right) => right.score - left.score || left.price - right.price || left.name.localeCompare(right.name, 'es'))
+    .slice(0, 8);
+  const box = $('#search-suggestions');
+  if (!searchSuggestionItems.length) {
+    closeSearchSuggestions();
+    return;
+  }
+  box.innerHTML = searchSuggestionItems.map((product, index) => `
+    <button id="search-suggestion-${index}" class="search-suggestion-option" type="button" role="option" aria-selected="false" data-index="${index}">
+      <span><b>${escapeHtml(product.name)}</b><small>${escapeHtml(product.brand || product.active_ingredient || product.pharmacy)}</small></span>
+      <strong>${money(product.price)}</strong>
+    </button>`).join('');
+  box.hidden = false;
+  activeSearchSuggestion = -1;
+  $('#search-input').setAttribute('aria-expanded', 'true');
+  box.querySelectorAll('.search-suggestion-option').forEach(option => {
+    option.addEventListener('mousedown', event => event.preventDefault());
+    option.addEventListener('click', () => selectSearchSuggestion(Number(option.dataset.index)));
+  });
+}
+
 $('#search-form').addEventListener('submit', async (event)=>{
   event.preventDefault();
+  closeSearchSuggestions();
   const validation=validateSearchQuery($('#search-input').value); const validationMessage=$('#search-validation');
   if(validation.error){validationMessage.textContent=validation.error;$('#search-input').setAttribute('aria-invalid','true');$('#search-input').focus();return;}
   validationMessage.textContent=''; $('#search-input').removeAttribute('aria-invalid'); $('#search-input').value=validation.value;
@@ -257,7 +348,29 @@ $('#search-input').addEventListener('input',()=>{
     input.removeAttribute('aria-invalid');
     $('#search-validation').textContent='';
   }
+  clearTimeout(searchSuggestionTimer);
+  searchSuggestionTimer = setTimeout(() => {
+    refreshSearchSuggestions(input.value).catch(closeSearchSuggestions);
+  }, 140);
 });
+
+$('#search-input').addEventListener('keydown', event => {
+  if ($('#search-suggestions').hidden) return;
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    event.preventDefault();
+    const direction = event.key === 'ArrowDown' ? 1 : -1;
+    activeSearchSuggestion = (activeSearchSuggestion + direction + searchSuggestionItems.length) % searchSuggestionItems.length;
+    paintActiveSearchSuggestion();
+  } else if (event.key === 'Enter' && activeSearchSuggestion >= 0) {
+    event.preventDefault();
+    selectSearchSuggestion(activeSearchSuggestion);
+  } else if (event.key === 'Escape') {
+    event.preventDefault();
+    closeSearchSuggestions();
+  }
+});
+
+$('#search-input').addEventListener('blur', () => setTimeout(closeSearchSuggestions, 120));
 
 $('#clear-results').addEventListener('click',()=>{
   $('#results').innerHTML='';
@@ -547,6 +660,7 @@ async function refreshAlertProducts() {
 $('.menu-btn').addEventListener('click',()=>{ const links=$('.nav-links'); links.classList.toggle('open'); $('.menu-btn').setAttribute('aria-expanded',links.classList.contains('open')); });
 
 $('#region-select').addEventListener('change',()=>{
+  closeSearchSuggestions();
   const communeSelect=$('#commune-select');
   communeSelect.innerHTML='';
   (COMMUNES_BY_REGION[$('#region-select').value]||[]).forEach(commune=>{
@@ -558,7 +672,7 @@ $('#region-select').addEventListener('change',()=>{
   refreshAlertProducts();
 });
 
-$('#commune-select').addEventListener('change',()=>{updateHeroCoverage();refreshAlertProducts()});
+$('#commune-select').addEventListener('change',()=>{closeSearchSuggestions();updateHeroCoverage();refreshAlertProducts()});
 
 const mobileMetricQuery=window.matchMedia('(max-width: 600px)');
 function placeCatalogMetricCard(event=mobileMetricQuery) {

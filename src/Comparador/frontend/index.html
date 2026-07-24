@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="best-result.css?v=20260724-review1">
+  <link rel="stylesheet" href="best-result.css?v=20260724-autocomplete1">
   <link rel="stylesheet" href="review-fixes.css">
 <script src="navigation.js?v=20260724-1" defer></script></head>
 <body>
@@ -38,7 +38,8 @@
           <p>Compara medicamentos, calcula tu gasto mensual y optimiza una receta completa entre distintas farmacias.</p>
           <form id="search-form" class="search-box">
             <span aria-hidden="true">⌕</span>
-            <input id="search-input" required minlength="2" maxlength="100" inputmode="search" spellcheck="false" aria-describedby="search-validation" placeholder="Ej: paracetamol 500 mg" autocomplete="off">
+            <input id="search-input" required minlength="2" maxlength="100" inputmode="search" spellcheck="false" aria-describedby="search-validation search-suggestions" aria-autocomplete="list" aria-controls="search-suggestions" aria-expanded="false" placeholder="Ej: paracetamol 500 mg" autocomplete="off">
+            <div id="search-suggestions" class="search-suggestions" role="listbox" aria-label="Productos sugeridos" hidden></div>
             <button type="submit">Comparar precios</button>
           </form>
           <small id="search-validation" class="search-validation" role="alert" aria-live="polite"></small>
@@ -135,9 +136,7 @@
   </main>
 
   <footer><div class="container footer-grid"><div><a class="brand" href="#inicio" aria-label="AhorraMed"><img class="brand-logo" src="assets/Logo_imagen_texto_transparent.png" alt="AhorraMed"></a><p>Comparador informativo. No vendemos medicamentos ni reemplazamos la orientación médica o farmacéutica.</p></div><div><b>Plataforma</b><a href="#comparar">Comparador</a><a href="receta.html">Recetas</a><a href="#alertas">Alertas</a></div><div><b>Importante</b><p>Verifica receta, concentración, stock y precio final en la farmacia antes de comprar.</p></div></div><div class="container legal-links"><a href="privacidad.html">Privacidad</a><a href="terminos.html">Términos de uso</a></div></footer>
-  <script src="app.js" defer></script>
+  <script src="app.js?v=20260724-autocomplete1" defer></script>
 </body>
 </html>
-
-
 
