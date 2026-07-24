@@ -36,14 +36,65 @@ const validCoordinates=(item)=>Number.isFinite(item.latitude)&&Number.isFinite(i
 const timeText=(value)=>value?value.slice(0,5):'No informado';
 const scheduleText=(item)=>item.duty_schedule||item.schedule||(item.opens_at||item.closes_at?`${timeText(item.opens_at)}–${timeText(item.closes_at)}`:'Horario no informado');
 const toMinutes=(value)=>{const [hour,minute]=String(value||'').split(':').map(Number);return Number.isFinite(hour)&&Number.isFinite(minute)?hour*60+minute:null;};
-function isOpen(item) {
-  if(typeof item.open_now==='boolean') return item.open_now;
-  const open=toMinutes(item.opens_at); const close=toMinutes(item.closes_at);
-  if(open===null||close===null) return null;
-  const parts=new Intl.DateTimeFormat('es-CL',{timeZone:'America/Santiago',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(new Date());
-  const now=Number(parts.find(part=>part.type==='hour')?.value)*60+Number(parts.find(part=>part.type==='minute')?.value);
-  return close<=open?now>=open||now<=close:now>=open&&now<=close;
+const DAY_INDEX={domingo:0,lunes:1,martes:2,miercoles:3,jueves:4,viernes:5,sabado:6};
+function chileClock(date=new Date()) {
+  const parts=new Intl.DateTimeFormat('es-CL',{
+    timeZone:'America/Santiago',weekday:'long',hour:'2-digit',minute:'2-digit',hour12:false
+  }).formatToParts(date);
+  const weekday=normalize(parts.find(part=>part.type==='weekday')?.value);
+  const hour=Number(parts.find(part=>part.type==='hour')?.value);
+  const minute=Number(parts.find(part=>part.type==='minute')?.value);
+  return {day:DAY_INDEX[weekday],minutes:(hour%24)*60+minute};
 }
+function dayExpressionMatches(expression,currentDay) {
+  const days=(normalize(expression).match(/domingo|lunes|martes|miercoles|jueves|viernes|sabado/g)||[]).map(day=>DAY_INDEX[day]);
+  if(!days.length)return false;
+  const normalized=normalize(expression);
+  if(days.length>=2){
+    const start=days[0],end=days[1];
+    return start<=end?currentDay>=start&&currentDay<=end:currentDay>=start||currentDay<=end;
+  }
+  return days.includes(currentDay);
+}
+function intervalState(now,open,close) {
+  const inside=close<=open?now>=open||now<=close:now>=open&&now<=close;
+  if(!inside)return null;
+  let remaining=close-now;
+  if(remaining<0)remaining+=1440;
+  return remaining<=45
+    ? {state:'closing',label:'Cierra pronto',detail:`Cierra en ${remaining} min`,open:true}
+    : {state:'open',label:'Abierto',detail:`Cierra a las ${String(Math.floor(close/60)).padStart(2,'0')}:${String(close%60).padStart(2,'0')}`,open:true};
+}
+function scheduleStatus(item,date=new Date()) {
+  const clock=chileClock(date);
+  const directOpen=toMinutes(item.opens_at),directClose=toMinutes(item.closes_at);
+  if(directOpen!==null&&directClose!==null){
+    return intervalState(clock.minutes,directOpen,directClose)||{state:'closed',label:'Cerrado',detail:'Fuera del horario informado',open:false};
+  }
+  const raw=scheduleText(item);
+  const normalized=normalize(raw);
+  const clauses=[...String(raw).matchAll(/(domingo|lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado)s?(?:\s*(?:-|–|a|hasta|y)\s*(domingo|lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado)s?)?\s*:\s*([^.;]+)/gi)];
+  if(clauses.length){
+    const today=clauses.find(match=>dayExpressionMatches(`${match[1]} ${match[2]||''}`,clock.day));
+    if(!today)return {state:'closed',label:'Cerrado',detail:'Sin atención informada para hoy',open:false};
+    const detail=today[3];
+    if(/\bcerrado\b/i.test(detail))return {state:'closed',label:'Cerrado',detail:'Cerrado según el horario informado',open:false};
+    const intervals=[...detail.matchAll(/(\d{1,2}):(\d{2})\s*(?:a|-|–)\s*(\d{1,2}):(\d{2})/g)];
+    for(const match of intervals){
+      const status=intervalState(clock.minutes,Number(match[1])*60+Number(match[2]),Number(match[3])*60+Number(match[4]));
+      if(status)return status;
+    }
+    if(intervals.length)return {state:'closed',label:'Cerrado',detail:'Fuera del horario informado',open:false};
+  }
+  if(/\b24\s*(?:horas|hrs)|24\/7\b/.test(normalized)||directoryType(item)==='urgencia'){
+    return {state:'open',label:'Abierto',detail:'Atención informada las 24 horas',open:true};
+  }
+  if(typeof item.open_now==='boolean')return item.open_now
+    ? {state:'open',label:'Abierto',detail:'Según la información disponible',open:true}
+    : {state:'closed',label:'Cerrado',detail:'Según la información disponible',open:false};
+  return {state:'unknown',label:'Horario por confirmar',detail:'Confirma el horario directamente con la farmacia',open:null};
+}
+const isOpen=(item)=>scheduleStatus(item).open;
 function distanceKm(a,b) {
   const rad=(value)=>value*Math.PI/180; const earth=6371;
   const dLat=rad(b.latitude-a.latitude); const dLng=rad(b.longitude-a.longitude);
@@ -97,7 +148,7 @@ function fitVisibleMarkers() {
 }
 function createCard(item) {
   const card=document.createElement('article'); card.className='turno-card';
-  const opened=isOpen(item); const category=directoryType(item); const distance=userPosition&&validCoordinates(item)?distanceKm(userPosition,item):null;
+  const availability=scheduleStatus(item); const opened=availability.open; const category=directoryType(item); const distance=userPosition&&validCoordinates(item)?distanceKm(userPosition,item):null;
   const header=document.createElement('div'); header.className='turno-card-header';
   const title=document.createElement('h3'); title.textContent=item.name;
   const badge=document.createElement('span'); badge.className=`turno-badge${opened===false?' closed':''}`;
@@ -106,8 +157,12 @@ function createCard(item) {
   else badge.textContent=item.on_duty&&opened===true?'De turno · abierta':item.on_duty?'De turno':opened===true?'Abierta ahora':opened===false?'Fuera de horario':'Horario informado';
   header.append(title,badge); card.appendChild(header);
   const address=document.createElement('span'); address.className='turno-address'; address.textContent=`${item.address}${item.commune?`, ${item.commune}`:''}`; card.appendChild(address);
+  const hoursRow=document.createElement('div'); hoursRow.className='turno-hours-row';
   const hours=document.createElement('span'); hours.className='turno-hours';
-  hours.textContent=`Horario informado: ${scheduleText(item)}${item.weekday?` · ${item.weekday}`:''}`; card.appendChild(hours);
+  hours.textContent=`Horario informado: ${scheduleText(item)}${item.weekday?` · ${item.weekday}`:''}`;
+  const status=document.createElement('span'); status.className=`turno-open-status ${availability.state}`;
+  status.innerHTML=`<b>${availability.label}</b><small>${availability.detail}</small>`;
+  hoursRow.append(hours,status); card.appendChild(hoursRow);
   if(distance!==null){const line=document.createElement('span');line.className='turno-distance';line.textContent=`A ${distance<10?distance.toFixed(1):Math.round(distance)} km de tu ubicación`;card.appendChild(line);}
   const actions=document.createElement('div'); actions.className='turno-actions';
   if(item.phone){const call=document.createElement('a');call.href=`tel:${item.phone.replace(/[^+\d]/g,'')}`;call.textContent='Llamar';actions.appendChild(call);}
@@ -126,8 +181,9 @@ function render() {
   filtered.forEach(item=>{
     container.appendChild(createCard(item));
     if(validCoordinates(item)) {
-      const marker=L.marker([item.latitude,item.longitude],{icon:markerIcon(isOpen(item),item)}).addTo(map);
-      marker.bindPopup(`<b>${item.name.replace(/[<>&]/g,'')}</b><br>${item.address.replace(/[<>&]/g,'')}<br>${scheduleText(item).replace(/[<>&]/g,'')}`); markers.push(marker);
+      const availability=scheduleStatus(item);
+      const marker=L.marker([item.latitude,item.longitude],{icon:markerIcon(availability.open,item)}).addTo(map);
+      marker.bindPopup(`<div class="turno-map-popup"><b>${item.name.replace(/[<>&]/g,'')}</b><span>${item.address.replace(/[<>&]/g,'')}</span><span>${scheduleText(item).replace(/[<>&]/g,'')}</span><span class="turno-open-status ${availability.state}"><b>${availability.label}</b><small>${availability.detail}</small></span></div>`); markers.push(marker);
     }
   });
   $('#turno-status').hidden=filtered.length>0;

@@ -187,3 +187,20 @@
   .turno-mobile-help b{display:block;margin-bottom:2px;font-size:11px}
   .turno-mobile-help span{color:#466b77;font-size:10px;line-height:1.45}
 }
+
+.turno-hours-row{display:grid;gap:8px}
+.turno-open-status{display:inline-grid;grid-template-columns:auto 1fr;column-gap:7px;align-items:center;width:max-content;max-width:100%;padding:6px 9px;border:1px solid;border-radius:9px}
+.turno-open-status b{font-size:10px}
+.turno-open-status small{grid-column:2;color:inherit;font-size:8px;line-height:1.35}
+.turno-open-status.open{border-color:#76cf9c;background:#e9f8ef;color:#137a42}
+.turno-open-status.closing{border-color:#efb44f;background:#fff6e4;color:#9b641d}
+.turno-open-status.closed{border-color:#e69a9a;background:#fff0f0;color:#ad3434}
+.turno-open-status.unknown{border-color:#a8c9d1;background:#f0f7f9;color:#466b77}
+.turno-map-popup{display:grid;gap:5px;min-width:230px}
+.turno-map-popup>span:not(.turno-open-status){color:#466b77}
+.turno-map-popup .turno-open-status{margin-top:3px}
+
+@media(max-width:600px){
+  .turno-open-status{width:100%;grid-template-columns:auto 1fr}
+  .turno-map-popup{min-width:190px}
+}
