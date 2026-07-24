@@ -669,8 +669,11 @@ h1 span {
   .nav-tool-menu{position:static;display:block;box-shadow:none;margin:.4rem 0 0;padding:.35rem;border-color:rgba(255,255,255,.3);background:rgba(255,255,255,.08)}
   .nav-tool-menu a{color:#fff!important;padding:.55rem 1rem}
 }
-.hero .search-box{position:relative;overflow:visible}
-.hero .search-suggestions{position:absolute;z-index:60;left:0;right:0;top:calc(100% + 10px);max-height:380px;overflow-y:auto;padding:8px;background:#fff;border:2px solid #13a797;border-radius:18px;box-shadow:0 22px 55px rgba(0,75,102,.2)}
+.hero{z-index:5;overflow:visible}
+.hero .hero-copy{z-index:10}
+.hero .search-box{position:relative;z-index:20;overflow:visible}
+.hero .search-suggestions{position:absolute;z-index:1000;left:0;right:0;top:calc(100% + 10px);max-height:380px;overflow-y:auto;padding:8px;background:#fff;border:2px solid #13a797;border-radius:18px;box-shadow:0 22px 55px rgba(0,75,102,.2)}
+.trust-strip{position:relative;z-index:1}
 .hero .search-suggestions[hidden]{display:none}
 .hero .search-box .search-suggestion-option{display:flex;align-items:center;justify-content:space-between;gap:18px;width:100%;padding:12px 14px;border:0;border-radius:12px;background:#fff;color:#064764;text-align:left;cursor:pointer;transform:none}
 .hero .search-box .search-suggestion-option:hover,.hero .search-box .search-suggestion-option.active{background:#eaf8f5;color:#064764;transform:none}
