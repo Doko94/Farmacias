@@ -22,7 +22,7 @@ const REGION_BOUNDS = {
 const KNOWN_COMMUNES = {
   Metropolitana: ['Santiago','Cerrillos','Cerro Navia','Conchalí','El Bosque','Estación Central','Huechuraba','Independencia','La Cisterna','La Florida','La Granja','La Pintana','La Reina','Las Condes','Lo Barnechea','Lo Espejo','Lo Prado','Macul','Maipú','Ñuñoa','Pedro Aguirre Cerda','Peñalolén','Providencia','Pudahuel','Quilicura','Quinta Normal','Recoleta','Renca','San Joaquín','San Miguel','San Ramón','Vitacura','Puente Alto','San Bernardo']
 };
-let pharmacies=[]; let filtered=[]; let userPosition=null; let userMarker=null; let markers=[]; let typeFilter='turno'; let loadedMode='duty';
+let pharmacies=[]; let filtered=[]; let availableCommunes=[]; let userPosition=null; let userMarker=null; let markers=[]; let typeFilter='turno'; let loadedMode='duty';
 
 const map=L.map('turno-map',{zoomControl:true}).setView([-33.45,-70.66],5);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
@@ -137,7 +137,7 @@ function setOptions(select,values,placeholder) {
 function updateCommunes() {
   const region=$('#turno-region').value;
   const informed=pharmacies.filter(item=>!region||regionName(item)===region).map(item=>item.commune);
-  setOptions($('#turno-commune'),[...(KNOWN_COMMUNES[region]||[]),...informed],'Todas las comunas');
+  setOptions($('#turno-commune'),[...(KNOWN_COMMUNES[region]||[]),...availableCommunes,...informed],'Todas las comunas');
 }
 function clearMarkers() { markers.forEach(marker=>map.removeLayer(marker)); markers=[]; }
 function fitVisibleMarkers() {
@@ -198,19 +198,20 @@ function render() {
   }
   fitVisibleMarkers();
 }
-async function loadRegion(region='Tarapacá',mode=['turno','urgencia'].includes(typeFilter)?'duty':'all') {
+async function loadRegion(region='Tarapacá',mode=['turno','urgencia'].includes(typeFilter)?'duty':'all',commune='') {
   const bounds=REGION_BOUNDS[region]||REGION_BOUNDS.Tarapacá;
-  const params=new URLSearchParams({...bounds,region,mode});
+  const params=new URLSearchParams({...bounds,region,mode,commune});
   $('#turno-status').hidden=false;
   $('#turno-status').textContent='Consultando farmacias de la región…';
   try {
     const response=await fetch(`${API_URL}?${params}`); const payload=await response.json();
     if(!response.ok) throw new Error(payload.error||'No fue posible consultar las farmacias');
     pharmacies=payload.pharmacies.map(item=>({...item,region:regionName(item)}));
+    availableCommunes=Array.isArray(payload.communes)?payload.communes:[];
     loadedMode=mode;
     $('#turno-region').value=region;
     updateCommunes();
-    if(region==='Tarapacá') {
+    if(region==='Tarapacá'&&!commune) {
       const item=pharmacies.find(item=>normalize(item.commune)==='iquique');
       if(item) $('#turno-commune').value=item.commune;
     }
@@ -218,7 +219,7 @@ async function loadRegion(region='Tarapacá',mode=['turno','urgencia'].includes(
     $('#turno-source').textContent=`Fuente: ${payload.source}${payload.indirect?' · fuente de respaldo':''}${payload.stale?' · última copia disponible':''} · consultado ${new Intl.DateTimeFormat('es-CL',{dateStyle:'medium',timeStyle:'short'}).format(new Date(payload.fetched_at))}`;
     render();
   } catch(error) {
-    pharmacies=[]; clearMarkers(); $('#turno-count').textContent='0'; updateCommunes();
+    pharmacies=[]; availableCommunes=[]; clearMarkers(); $('#turno-count').textContent='0'; updateCommunes();
     $('#turno-status').hidden=false; $('#turno-status').innerHTML='No fue posible actualizar la información en este momento. <a href="https://seremienlinea.minsal.cl/asdigital/index.php?mfarmacias" target="_blank" rel="noopener">Consultar el mapa oficial MINSAL</a>.';
     $('#turno-source').textContent=error.message;
   }
@@ -226,14 +227,21 @@ async function loadRegion(region='Tarapacá',mode=['turno','urgencia'].includes(
 setOptions($('#turno-region'),Object.keys(REGION_BOUNDS),'Selecciona una región');
 $('#turno-region').value='Tarapacá';
 $('#turno-region').addEventListener('change',event=>loadRegion(event.target.value||'Tarapacá'));
-$('#turno-commune').addEventListener('change',render); $('#turno-search').addEventListener('input',render); $('#fit-map').addEventListener('click',fitVisibleMarkers);
+$('#turno-commune').addEventListener('change',event=>{
+  if(loadedMode==='all'&&event.target.value)loadRegion($('#turno-region').value,'all',event.target.value);
+  else render();
+}); $('#turno-search').addEventListener('input',render); $('#fit-map').addEventListener('click',fitVisibleMarkers);
 document.querySelectorAll('.turno-type-filter button').forEach(button=>button.addEventListener('click',async()=>{
   typeFilter=button.dataset.type;
   document.querySelectorAll('.turno-type-filter button').forEach(item=>{const active=item===button;item.classList.toggle('active',active);item.setAttribute('aria-pressed',String(active))});
   const mobileHelp=$('#turno-mobile-help');
   if(mobileHelp)mobileHelp.innerHTML=`<div><b>${TYPE_LABELS[typeFilter]}</b><span>${button.dataset.help||''}</span></div>`;
   const requiredMode=['turno','urgencia'].includes(typeFilter)?'duty':'all';
-  if(loadedMode!==requiredMode)await loadRegion($('#turno-region').value||'Tarapacá',requiredMode);else render()
+  if(loadedMode!==requiredMode)await loadRegion(
+    $('#turno-region').value||'Tarapacá',
+    requiredMode,
+    requiredMode==='all'?$('#turno-commune').value:''
+  );else render()
 }));
 $('#use-location').addEventListener('click',()=>{
   if(!navigator.geolocation){$('#turno-status').hidden=false;$('#turno-status').textContent='Tu navegador no permite obtener la ubicación.';return;}

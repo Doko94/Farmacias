@@ -38,6 +38,15 @@ async function mapLimit(items, limit, mapper) {
   return output;
 }
 
+async function withRetry(task, attempts=3) {
+  let lastError;
+  for(let attempt=0;attempt<attempts;attempt+=1) {
+    try { return await task(); }
+    catch(error) { lastError=error; }
+  }
+  throw lastError;
+}
+
 function regionMatch(regions, requested) {
   const wanted=comparable(requested);
   return regions.find(item=>{const name=comparable(item.nombre);return name===wanted||name.includes(wanted)||wanted.includes(name)||wanted==="o higgins"&&name.includes('higgins')});
@@ -50,8 +59,8 @@ export async function fetchSeremiRegion(requestedRegion) {
   if(!date)throw new Error('SEREMI no informó fechas de turno');
   const [communes,response]=await Promise.all([postSeremi({func:'comunas',region:region.id}),postSeremi({func:'region',filtro:'turnos',fecha:date,region:region.id,hora:now.time})]);
   const communeNames=new Map((communes||[]).map(item=>[String(item.id),text(item.nombre)])); const locals=response?.locales||[];
-  const detailed=await mapLimit(locals,6,async local=>{
-    try { return await postSeremi({func:'local',im:local.im,lt:local.lt||'',lg:local.lg||'',tp:local.tp||'',fecha:date}); }
+  const detailed=await mapLimit(locals,4,async local=>{
+    try { return await withRetry(()=>postSeremi({func:'local',im:local.im,lt:local.lt||'',lg:local.lg||'',tp:local.tp||'',fecha:date}),2); }
     catch { return null; }
   });
   const pharmacies=locals.map((marker,index)=>{
@@ -60,14 +69,76 @@ export async function fetchSeremiRegion(requestedRegion) {
     return {id:text(marker.im),date,name:text(local.nm)||`Farmacia ${marker.im}`,region:text(region.nombre),region_id:text(region.id),commune:communeNames.get(String(local.cm))||'',locality:'',address:text(local.dr),phone:text(local.tl),latitude:number(marker.lt),longitude:number(marker.lg),opens_at:times?.[1]||'',closes_at:times?.[2]||'',weekday:'',type:String(marker.tp)==='3'?'Farmacia de urgencia':'Farmacia de turno',open_now:null,on_duty:true,schedule:cleanHtml(schedule.semana),duty_schedule:duty};
   }).filter(item=>item.name&&item.commune&&item.latitude!==null&&item.longitude!==null);
   if(!pharmacies.length)throw new Error('SEREMI no devolvió farmacias de turno con detalle');
-  return {endpoint:SEREMI_ENDPOINT,date,pharmacies};
+  return {endpoint:SEREMI_ENDPOINT,date,communes:(communes||[]).map(item=>text(item.nombre)).filter(Boolean),pharmacies};
+}
+
+async function fetchSeremiCommuneDirectory(requestedRegion, requestedCommune) {
+  const regions=await postSeremi({func:'regiones'});
+  const region=regionMatch(regions,requestedRegion);
+  if(!region)throw new Error('Región no disponible en SEREMI');
+  const communes=await postSeremi({func:'comunas',region:region.id});
+  const wanted=comparable(requestedCommune);
+  const commune=(communes||[]).find(item=>comparable(item.nombre)===wanted);
+  if(!commune)throw new Error('Comuna no disponible en SEREMI');
+  const latitude=number(commune.lat),longitude=number(commune.lng);
+  if(latitude===null||longitude===null)throw new Error('Comuna sin coordenadas oficiales');
+  const response=await postSeremi({
+    func:'sector',filtro:'todos',fecha:'',region:region.id,
+    lat:latitude,lng:longitude,
+    latMin:latitude-.32,latMax:latitude+.32,
+    lngMin:longitude-.38,lngMax:longitude+.38,
+    hora:chileNow().time
+  });
+  const locals=response?.locales||[];
+  const detailed=await mapLimit(locals,4,async marker=>{
+    try {
+      return await withRetry(()=>postSeremi({
+        func:'local',im:marker.im,lt:marker.lt||'',lg:marker.lg||'',
+        tp:marker.tp||'',fecha:''
+      }),3);
+    } catch { return null; }
+  });
+  const typeLabels=['Farmacia privada','Farmacia de turno','Farmacia privada',
+    'Farmacia de urgencia','Farmacia de turno','Farmacia privada',
+    'Farmacia municipal','Farmacia móvil','Almacén farmacéutico','Antígenos'];
+  const pharmacies=locals.map((marker,index)=>{
+    const detail=detailed[index]||{},local=detail.local||{},schedule=detail.horario||{};
+    const communeName=text((communes||[]).find(item=>String(item.id)===String(local.cm))?.nombre)
+      || text(commune.nombre);
+    return {
+      id:text(marker.im),date:'',name:text(local.nm),
+      region:text(region.nombre),region_id:text(region.id),commune:communeName,
+      locality:'',address:text(local.dr),phone:text(local.tl),
+      latitude:number(marker.lt),longitude:number(marker.lg),
+      opens_at:'',closes_at:'',weekday:'',
+      type:typeLabels[Number(marker.tp)]||'Farmacia autorizada',
+      open_now:null,on_duty:[1,3,4].includes(Number(marker.tp)),
+      schedule:cleanHtml(schedule.semana),duty_schedule:cleanHtml(schedule.turno)
+    };
+  }).filter(item=>
+    item.name&&item.address&&item.latitude!==null&&item.longitude!==null&&
+    comparable(item.commune)===wanted
+  );
+  return {
+    endpoint:SEREMI_ENDPOINT,
+    communes:(communes||[]).map(item=>text(item.nombre)).filter(Boolean),
+    pharmacies
+  };
+}
+
+async function fetchSeremiCommuneNames(requestedRegion) {
+  const regions=await postSeremi({func:'regiones'});
+  const region=regionMatch(regions,requestedRegion);
+  if(!region)return [];
+  const communes=await postSeremi({func:'comunas',region:region.id});
+  return (communes||[]).map(item=>text(item.nombre)).filter(Boolean);
 }
 
 function blobStore() { try { return getStore({name:'farmacias-turno',consistency:'strong'}); } catch { return null; } }
 async function readBlob(key) { try { return await blobStore()?.get(key,{type:'json'})||null; } catch { return null; } }
 async function writeBlob(key,value) { try { await blobStore()?.setJSON(key,value); } catch {} }
 export async function persistSeremiRegion(region) {
-  const result=await fetchSeremiRegion(region); const body={source:'SEREMI en Línea · Ministerio de Salud de Chile',source_url:result.endpoint,fetched_at:new Date().toISOString(),effective_date:result.date,indirect:false,pharmacies:result.pharmacies};
+  const result=await fetchSeremiRegion(region); const body={source:'SEREMI en Línea · Ministerio de Salud de Chile',source_url:result.endpoint,fetched_at:new Date().toISOString(),effective_date:result.date,indirect:false,communes:result.communes||[],pharmacies:result.pharmacies};
   await Promise.all([writeBlob(`${result.date}:${slug(region)}`,body),writeBlob(`latest:${slug(region)}`,body)]); return body;
 }
 
@@ -187,8 +258,8 @@ const inside=(item,bounds)=>item.latitude>=bounds.south&&item.latitude<=bounds.n
 
 export default async (request) => {
   const now = Date.now();
-  const url=new URL(request.url); const bounds=requestBounds(url); const region=text(url.searchParams.get('region')); const mode=url.searchParams.get('mode')==='all'?'all':'duty';
-  const cacheKey=`${mode}|${region}|${Object.values(bounds).map(value=>value.toFixed(2)).join('|')}`;
+  const url=new URL(request.url); const bounds=requestBounds(url); const region=text(url.searchParams.get('region')); const commune=text(url.searchParams.get('commune')); const mode=url.searchParams.get('mode')==='all'?'all':'duty';
+  const cacheKey=`${mode}|${region}|${comparable(commune)}|${Object.values(bounds).map(value=>value.toFixed(2)).join('|')}`;
   const cached=memoryCache.get(cacheKey);
   if (cached && now - cached.timestamp < CACHE_MS) {
     return Response.json(cached.body, {headers:{'Cache-Control':'public, max-age=300, s-maxage=1800'}});
@@ -196,9 +267,21 @@ export default async (request) => {
   if(mode==='all') {
     try {
       let result; let source;
-      try { result=await fetchBuscaFarma(bounds,region); source='Directorio general de farmacias · información pública consolidada'; }
-      catch { result=await fetchBuscaFarmaViaReader(bounds,region); source='Directorio general de farmacias · servicio de respaldo'; }
-      const body={source,source_url:result.endpoint,fetched_at:new Date().toISOString(),indirect:true,directory:true,pharmacies:result.pharmacies};
+      if(commune) {
+        try {
+          result=await fetchSeremiCommuneDirectory(region,commune);
+          source='SEREMI en Línea · Ministerio de Salud de Chile';
+        } catch {
+          try { result=await fetchBuscaFarma(bounds,region); source='Directorio general de farmacias · información pública consolidada'; }
+          catch { result=await fetchBuscaFarmaViaReader(bounds,region); source='Directorio general de farmacias · servicio de respaldo'; }
+          result.pharmacies=result.pharmacies.filter(item=>comparable(item.commune)===comparable(commune));
+        }
+      } else {
+        try { result=await fetchBuscaFarma(bounds,region); source='Directorio general de farmacias · información pública consolidada'; }
+        catch { result=await fetchBuscaFarmaViaReader(bounds,region); source='Directorio general de farmacias · servicio de respaldo'; }
+        try { result.communes=await fetchSeremiCommuneNames(region); } catch {}
+      }
+      const body={source,source_url:result.endpoint,fetched_at:new Date().toISOString(),indirect:!source.startsWith('SEREMI'),directory:true,communes:result.communes||[],pharmacies:result.pharmacies};
       memoryCache.set(cacheKey,{timestamp:now,body}); return Response.json(body,{headers:{'Cache-Control':'public, max-age=300, s-maxage=1800, stale-while-revalidate=86400'}});
     } catch(error) {
       if(cached)return Response.json({...cached.body,stale:true},{headers:{'Cache-Control':'no-cache'}});
