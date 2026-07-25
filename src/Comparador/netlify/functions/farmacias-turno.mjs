@@ -12,7 +12,17 @@ const OFFICIAL_ENDPOINTS = [
 const memoryCache = new Map();
 const CACHE_MS = 30 * 60 * 1000;
 
-const text = (value) => String(value ?? '').trim();
+const text = (value) => {
+  let result=String(value ?? '').trim();
+  if(/[ÃÂ]/.test(result)&&[...result].every(character=>character.charCodeAt(0)<=255)) {
+    try {
+      result=decodeURIComponent([...result].map(character=>
+        `%${character.charCodeAt(0).toString(16).padStart(2,'0')}`
+      ).join(''));
+    } catch {}
+  }
+  return result;
+};
 const number = (value) => {
   const parsed = Number(String(value ?? '').replace(',', '.'));
   return Number.isFinite(parsed) ? parsed : null;
@@ -207,6 +217,45 @@ async function fetchBuscaFarma(bounds, region) {
   return normalizeBuscaFarmaRows(rows,url.toString(),region);
 }
 
+function splitBounds(bounds) {
+  const middleLat=(bounds.south+bounds.north)/2;
+  const middleLng=(bounds.west+bounds.east)/2;
+  return [
+    {south:bounds.south,north:middleLat,west:bounds.west,east:middleLng},
+    {south:bounds.south,north:middleLat,west:middleLng,east:bounds.east},
+    {south:middleLat,north:bounds.north,west:bounds.west,east:middleLng},
+    {south:middleLat,north:bounds.north,west:middleLng,east:bounds.east}
+  ];
+}
+
+async function fetchBuscaFarmaCell(bounds, region, depth=0, budget={remaining:32}) {
+  if(budget.remaining<=0)return [];
+  budget.remaining-=1;
+  const result=await fetchBuscaFarma(bounds,region);
+  if(result.pharmacies.length<950||depth>=5||budget.remaining<4)return [result];
+  const settled=await Promise.allSettled(
+    splitBounds(bounds).map(cell=>fetchBuscaFarmaCell(cell,region,depth+1,budget))
+  );
+  const children=settled
+    .filter(item=>item.status==='fulfilled')
+    .flatMap(item=>item.value);
+  return children.length?children:[result];
+}
+
+async function fetchBuscaFarmaComplete(bounds, region) {
+  const parts=await fetchBuscaFarmaCell(bounds,region);
+  const rows=parts.flatMap(result=>result.pharmacies);
+  const unique=new Map();
+  rows.forEach(item=>{
+    const key=item.id||`${item.name}|${item.address}|${item.latitude}|${item.longitude}`;
+    if(!unique.has(key))unique.set(key,item);
+  });
+  return {
+    endpoint:parts[0]?.endpoint||'https://buscafarma.cl/api/farmacias',
+    pharmacies:[...unique.values()].filter(item=>inside(item,bounds))
+  };
+}
+
 function normalizeBuscaFarmaRows(rows, endpoint, region) {
   return {endpoint,pharmacies:rows.map(item=>normalize({
     ...item,
@@ -269,15 +318,17 @@ export default async (request) => {
       let result; let source;
       if(commune) {
         try {
-          result=await fetchSeremiCommuneDirectory(region,commune);
-          source='SEREMI en Línea · Ministerio de Salud de Chile';
+          result=await fetchBuscaFarmaComplete(bounds,region);
+          result.pharmacies=result.pharmacies.filter(item=>comparable(item.commune)===comparable(commune));
+          result.communes=await fetchSeremiCommuneNames(region);
+          source='Directorio general de farmacias · información pública consolidada';
         } catch {
           try { result=await fetchBuscaFarma(bounds,region); source='Directorio general de farmacias · información pública consolidada'; }
           catch { result=await fetchBuscaFarmaViaReader(bounds,region); source='Directorio general de farmacias · servicio de respaldo'; }
           result.pharmacies=result.pharmacies.filter(item=>comparable(item.commune)===comparable(commune));
         }
       } else {
-        try { result=await fetchBuscaFarma(bounds,region); source='Directorio general de farmacias · información pública consolidada'; }
+        try { result=await fetchBuscaFarmaComplete(bounds,region); source='Directorio general de farmacias · información pública consolidada'; }
         catch { result=await fetchBuscaFarmaViaReader(bounds,region); source='Directorio general de farmacias · servicio de respaldo'; }
         try { result.communes=await fetchSeremiCommuneNames(region); } catch {}
       }

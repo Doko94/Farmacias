@@ -227,10 +227,8 @@ async function loadRegion(region='Tarapacá',mode=['turno','urgencia'].includes(
 setOptions($('#turno-region'),Object.keys(REGION_BOUNDS),'Selecciona una región');
 $('#turno-region').value='Tarapacá';
 $('#turno-region').addEventListener('change',event=>loadRegion(event.target.value||'Tarapacá'));
-$('#turno-commune').addEventListener('change',event=>{
-  if(loadedMode==='all'&&event.target.value)loadRegion($('#turno-region').value,'all',event.target.value);
-  else render();
-}); $('#turno-search').addEventListener('input',render); $('#fit-map').addEventListener('click',fitVisibleMarkers);
+$('#turno-commune').addEventListener('change',render);
+$('#turno-search').addEventListener('input',render); $('#fit-map').addEventListener('click',fitVisibleMarkers);
 document.querySelectorAll('.turno-type-filter button').forEach(button=>button.addEventListener('click',async()=>{
   typeFilter=button.dataset.type;
   document.querySelectorAll('.turno-type-filter button').forEach(item=>{const active=item===button;item.classList.toggle('active',active);item.setAttribute('aria-pressed',String(active))});
@@ -240,7 +238,7 @@ document.querySelectorAll('.turno-type-filter button').forEach(button=>button.ad
   if(loadedMode!==requiredMode)await loadRegion(
     $('#turno-region').value||'Tarapacá',
     requiredMode,
-    requiredMode==='all'?$('#turno-commune').value:''
+    ''
   );else render()
 }));
 $('#use-location').addEventListener('click',()=>{
