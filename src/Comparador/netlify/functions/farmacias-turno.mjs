@@ -430,6 +430,22 @@ const inside=(item,bounds)=>item.latitude>=bounds.south&&item.latitude<=bounds.n
 export default async (request) => {
   const now = Date.now();
   const url=new URL(request.url); const bounds=requestBounds(url); const region=text(url.searchParams.get('region')); const commune=text(url.searchParams.get('commune')); const mode=url.searchParams.get('mode')==='all'?'all':'duty';
+  if(url.searchParams.get('communes_only')==='1') {
+    try {
+      const communes=await fetchSeremiCommuneNames(region);
+      return Response.json({
+        source:'SEREMI en Línea · comunas oficiales',
+        fetched_at:new Date().toISOString(),
+        communes,
+        pharmacies:[]
+      },{headers:{'Cache-Control':'public, max-age=3600, s-maxage=86400'}});
+    } catch {
+      return Response.json({error:'No fue posible consultar las comunas oficiales.'},{
+        status:503,
+        headers:{'Cache-Control':'no-store'}
+      });
+    }
+  }
   const forceRefresh=url.searchParams.has('refresh');
   const cacheKey=`coverage-v5|${mode}|${region}|${comparable(commune)}|${Object.values(bounds).map(value=>value.toFixed(2)).join('|')}`;
   const cached=memoryCache.get(cacheKey);

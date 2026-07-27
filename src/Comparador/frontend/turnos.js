@@ -23,6 +23,7 @@ const KNOWN_COMMUNES = {
   Metropolitana: ['Santiago','Cerrillos','Cerro Navia','Conchalí','El Bosque','Estación Central','Huechuraba','Independencia','La Cisterna','La Florida','La Granja','La Pintana','La Reina','Las Condes','Lo Barnechea','Lo Espejo','Lo Prado','Macul','Maipú','Ñuñoa','Pedro Aguirre Cerda','Peñalolén','Providencia','Pudahuel','Quilicura','Quinta Normal','Recoleta','Renca','San Joaquín','San Miguel','San Ramón','Vitacura','Puente Alto','San Bernardo']
 };
 let pharmacies=[]; let filtered=[]; let availableCommunes=[]; let userPosition=null; let userMarker=null; let markers=[]; let typeFilter='turno'; let loadedMode='duty';
+let loadSequence=0;
 
 const map=L.map('turno-map',{zoomControl:true}).setView([-33.45,-70.66],5);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
@@ -121,6 +122,20 @@ const TYPE_LABELS={
   todas:'Todas las farmacias'
 };
 const matchesType=(item,type)=>type==='todas'||directoryType(item)===type;
+const pharmacyKey=(item)=>item.id||`${normalize(item.name)}|${normalize(item.address)}|${item.latitude}|${item.longitude}`;
+async function mapConcurrent(values,limit,worker) {
+  const results=new Array(values.length);
+  let next=0;
+  async function run() {
+    while(next<values.length) {
+      const index=next++;
+      try { results[index]=await worker(values[index],index); }
+      catch { results[index]=null; }
+    }
+  }
+  await Promise.all(Array.from({length:Math.min(limit,values.length)},run));
+  return results;
+}
 function markerIcon(open,item) {
   const colors={urgencia:'#e5484d',movil:'#7051d8',municipal:'#e76f19',privada:'#2876c8',almacen:'#d92f78',turno:'#087f68'};
   const color=open===false?'#a94b4b':colors[directoryType(item)]||'#087f68';
@@ -199,8 +214,13 @@ function render() {
   fitVisibleMarkers();
 }
 async function loadRegion(region='Tarapacá',mode=['turno','urgencia'].includes(typeFilter)?'duty':'all',commune='',forceRefresh=false) {
+  const sequence=++loadSequence;
   const bounds=REGION_BOUNDS[region]||REGION_BOUNDS.Tarapacá;
   const storageKey=`ahorramed:pharmacies:v5:${mode}:${normalize(region)}:${normalize(commune)}`;
+  if(mode==='all'&&!commune) {
+    await loadAllCommunes(region,bounds,forceRefresh,sequence);
+    return;
+  }
   // Versiona también la URL de la función para no reutilizar en el CDN una
   // respuesta regional antigua limitada a 1.000 establecimientos.
   const params=new URLSearchParams({...bounds,region,mode,commune,dataset:'deterministic-coverage-v4'});
@@ -217,6 +237,7 @@ async function loadRegion(region='Tarapacá',mode=['turno','urgencia'].includes(
     }
     const payload=await response.json();
     if(!response.ok) throw new Error(payload.error||'No fue posible consultar las farmacias');
+    if(sequence!==loadSequence)return;
     try {
       localStorage.setItem(storageKey,JSON.stringify({
         savedAt:Date.now(),
@@ -265,6 +286,88 @@ async function loadRegion(region='Tarapacá',mode=['turno','urgencia'].includes(
     $('#turno-source').textContent=pharmacies.length
       ? 'Se muestran los últimos resultados guardados. La actualización en línea puede intentarse nuevamente.'
       : 'El servicio está temporalmente ocupado. Intenta nuevamente en unos segundos.';
+  }
+}
+async function loadAllCommunes(region,bounds,forceRefresh,sequence) {
+  $('#turno-status').hidden=false;
+  $('#turno-status').textContent='Preparando el directorio completo de la región…';
+  let communes=[...(KNOWN_COMMUNES[region]||[])];
+  try {
+    const params=new URLSearchParams({...bounds,region,mode:'all',communes_only:'1'});
+    const response=await fetch(`${API_URL}?${params}`);
+    if(response.ok&&(response.headers.get('content-type')||'').includes('application/json')) {
+      const payload=await response.json();
+      if(Array.isArray(payload.communes))communes=[...communes,...payload.communes];
+    }
+  } catch {}
+  communes=[...new Set(communes.filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
+  if(sequence!==loadSequence)return;
+  availableCommunes=communes;
+  $('#turno-region').value=region;
+  updateCommunes();
+
+  const merged=new Map();
+  const pending=[];
+  const maxAge=6*60*60*1000;
+  communes.forEach(commune=>{
+    const key=`ahorramed:pharmacies:v5:all:${normalize(region)}:${normalize(commune)}`;
+    let saved=null;
+    try { saved=JSON.parse(localStorage.getItem(key)||'null'); } catch {}
+    if(saved?.payload?.pharmacies?.length) {
+      saved.payload.pharmacies.forEach(item=>merged.set(pharmacyKey(item),item));
+    }
+    if(forceRefresh||!saved||Date.now()-Number(saved.savedAt||0)>maxAge)pending.push({commune,key});
+  });
+
+  function showProgress(done,total) {
+    if(sequence!==loadSequence)return;
+    pharmacies=[...merged.values()].map(item=>({...item,region:regionName(item)}));
+    loadedMode='all';
+    render();
+    $('#turno-status').hidden=false;
+    $('#turno-status').textContent=total
+      ? `Actualizando comunas ${done}/${total}. Ya puedes revisar ${pharmacies.length.toLocaleString('es-CL')} farmacias.`
+      : '';
+  }
+  showProgress(0,pending.length);
+
+  let completed=0;
+  await mapConcurrent(pending,3,async ({commune,key})=>{
+    const params=new URLSearchParams({
+      ...bounds,region,mode:'all',commune,
+      dataset:'commune-aggregate-v6'
+    });
+    if(forceRefresh)params.set('refresh',String(Date.now()));
+    const response=await fetch(`${API_URL}?${params}`,forceRefresh?{cache:'no-store'}:undefined);
+    if(!response.ok||!(response.headers.get('content-type')||'').includes('application/json')) {
+      throw new Error('Respuesta comunal no disponible');
+    }
+    const payload=await response.json();
+    if(Array.isArray(payload.pharmacies)) {
+      // Reemplazamos únicamente la comuna consultada, sin afectar las demás.
+      [...merged.entries()].forEach(([itemKey,item])=>{
+        if(normalize(item.commune)===normalize(commune))merged.delete(itemKey);
+      });
+      payload.pharmacies.forEach(item=>merged.set(pharmacyKey(item),item));
+      try { localStorage.setItem(key,JSON.stringify({savedAt:Date.now(),payload})); } catch {}
+    }
+    completed+=1;
+    showProgress(completed,pending.length);
+    return payload;
+  });
+  if(sequence!==loadSequence)return;
+  pharmacies=[...merged.values()].map(item=>({...item,region:regionName(item)}));
+  loadedMode='all';
+  $('#turno-date').textContent='Hoy';
+  $('#turno-source').textContent=`Fuente: directorio comunal consolidado · ${communes.length} comunas revisadas · actualización automática`;
+  render();
+  const failures=pending.length-completed;
+  $('#turno-status').hidden=pharmacies.length>0;
+  if(!pharmacies.length) {
+    $('#turno-status').hidden=false;
+    $('#turno-status').textContent='No fue posible cargar el directorio regional. Intenta actualizar nuevamente.';
+  } else if(failures>0) {
+    $('#turno-source').textContent+=` · ${failures} comunas conservaron su última copia disponible`;
   }
 }
 setOptions($('#turno-region'),Object.keys(REGION_BOUNDS),'Selecciona una región');
