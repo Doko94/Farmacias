@@ -155,6 +155,25 @@
   .recipe-page-grid h2{font-size:clamp(32px,3.2vw,44px)}
   .recipe-page-grid .tool-card{padding:24px}
 }
+
+/* Guía de avance y siguiente acción de la receta */
+.recipe-next-step{
+  display:grid;
+  gap:4px;
+  margin:14px 0 10px;
+  padding:13px 15px;
+  border:2px solid #13a797;
+  border-radius:12px;
+  background:#edfaf6;
+  color:#064764;
+  line-height:1.45
+}
+.recipe-next-step[hidden]{display:none}
+.recipe-next-step b{font-size:13px}
+.recipe-next-step span{font-size:11px}
+.recipe-next-step.processing{border-color:#e2aa45;background:#fff7e8}
+.recipe-next-step.ready{box-shadow:0 8px 24px rgba(19,167,151,.14)}
+#recipe-optimize:disabled{cursor:not-allowed;filter:grayscale(.35);opacity:.58}
 @media(max-width:900px){
   .recipe-page-grid{grid-template-columns:1fr;gap:28px}
   .recipe-page-grid>div:first-child{max-width:680px}

@@ -207,7 +207,40 @@ function medicineRow(value, index) {
   </div>`;
 }
 
-function renderReview(text = '', detected = [], notice = '') {
+function recipeGuidance() {
+  let guidance=$('#recipe-next-step');
+  if(!guidance) {
+    guidance=document.createElement('div');
+    guidance.id='recipe-next-step';
+    guidance.className='recipe-next-step';
+    guidance.setAttribute('role','status');
+    guidance.setAttribute('aria-live','polite');
+    $('#recipe-optimize')?.before(guidance);
+  }
+  return guidance;
+}
+
+function setRecipeActionState(state='idle') {
+  const button=$('#recipe-optimize');
+  const guidance=recipeGuidance();
+  if(!button||!guidance)return;
+  if(state==='processing') {
+    button.disabled=true;
+    button.textContent='Espera mientras analizamos la receta';
+    guidance.hidden=false;
+    guidance.className='recipe-next-step processing';
+    guidance.innerHTML='<b>Lectura en proceso</b><span>Al llegar a 100% todavía debemos ordenar y validar el texto. No cierres esta página.</span>';
+    return;
+  }
+  const ready=reviewedMedicines.some(Boolean);
+  button.disabled=!ready;
+  button.textContent='Comparar receta revisada';
+  guidance.hidden=!ready;
+  guidance.className='recipe-next-step ready';
+  if(ready)guidance.innerHTML='<b>Lectura terminada: revisa los medicamentos</b><span>Corrige o elimina cualquier resultado incorrecto. Cuando estés conforme, presiona <strong>Comparar receta revisada</strong>.</span>';
+}
+
+function renderReview(text = '', detected = [], notice = '', completed = false) {
   reviewedMedicines = detected.map(cleanCandidate).filter(Boolean);
   const output = $('#recipe-page-output');
   output.innerHTML = `<div class="recipe-review">
@@ -230,6 +263,12 @@ function renderReview(text = '', detected = [], notice = '') {
   });
   // Evita que Safari abra el teclado y mantenga el viewport ampliado.
   if (!reviewedMedicines.length && !isMobileViewport()) $('#recipe-manual').focus();
+  setRecipeActionState(completed&&reviewedMedicines.length?'ready':'idle');
+  if(completed) {
+    window.setTimeout(()=>{
+      document.querySelector('.recipe-review')?.scrollIntoView({behavior:'smooth',block:'center'});
+    },120);
+  }
 }
 
 function renderMedicineRows() {
@@ -250,6 +289,7 @@ function renderMedicineRows() {
       renderMedicineRows();
     });
   });
+  setRecipeActionState('idle');
 }
 
 function addManualMedicine() {
@@ -494,6 +534,7 @@ async function processRecipe(file) {
     return;
   }
   output.innerHTML = '<div class="ocr-progress"><b>Procesando receta…</b><span>Preparando lectura</span><i style="--progress:5%"></i></div>';
+  setRecipeActionState('processing');
   if (!window.Tesseract) {
     renderReview('', [], 'No se pudo cargar el lector automático. Aún puedes ingresar los medicamentos manualmente.');
     return;
@@ -508,13 +549,21 @@ async function processRecipe(file) {
         if (message.status !== 'recognizing text') return;
         const label = output.querySelector('span');
         const progress = output.querySelector('i');
-        if (label) label.textContent = `Reconociendo texto… ${Math.round(message.progress * 100)}%`;
+        const percentage = Math.round(message.progress * 100);
+        if (label) label.textContent = percentage >= 100
+          ? 'Lectura al 100%. Espera mientras organizamos los medicamentos…'
+          : `Reconociendo texto… ${percentage}%`;
         if (progress) progress.style.setProperty('--progress', `${message.progress * 100}%`);
       },
     });
     const text = result.data?.text || '';
     const detected = detectedCandidates(text);
-    renderReview(text, detected, detected.length ? '' : 'No identificamos medicamentos con suficiente confianza. Agrégalos manualmente usando el catálogo.');
+    renderReview(
+      text,
+      detected,
+      detected.length ? '' : 'No identificamos medicamentos con suficiente confianza. Agrégalos manualmente usando el catálogo.',
+      true
+    );
   } catch (error) {
     renderReview('', [], `No pudimos leer la imagen automáticamente. Puedes continuar manualmente. ${error.message || ''}`);
   } finally {
