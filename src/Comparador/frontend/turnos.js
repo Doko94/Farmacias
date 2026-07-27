@@ -211,6 +211,11 @@ async function loadRegion(region='Tarapacá',mode=['turno','urgencia'].includes(
     loadedMode=mode;
     $('#turno-region').value=region;
     updateCommunes();
+    if(commune) {
+      const matchingOption=[...$('#turno-commune').options]
+        .find(option=>normalize(option.value)===normalize(commune));
+      if(matchingOption) $('#turno-commune').value=matchingOption.value;
+    }
     if(region==='Tarapacá'&&!commune) {
       const item=pharmacies.find(item=>normalize(item.commune)==='iquique');
       if(item) $('#turno-commune').value=item.commune;
@@ -227,7 +232,25 @@ async function loadRegion(region='Tarapacá',mode=['turno','urgencia'].includes(
 setOptions($('#turno-region'),Object.keys(REGION_BOUNDS),'Selecciona una región');
 $('#turno-region').value='Tarapacá';
 $('#turno-region').addEventListener('change',event=>loadRegion(event.target.value||'Tarapacá'));
-$('#turno-commune').addEventListener('change',render);
+$('#turno-commune').addEventListener('change',event=>{
+  const commune=event.target.value;
+  // El listado regional de algunas fuentes está limitado a 1.000 registros.
+  // Una selección comunal debe generar una consulta dirigida, no limitarse a
+  // filtrar ese bloque incompleto.
+  if(commune) {
+    loadRegion(
+      $('#turno-region').value||'Tarapacá',
+      ['turno','urgencia'].includes(typeFilter)?'duty':'all',
+      commune
+    );
+  } else {
+    loadRegion(
+      $('#turno-region').value||'Tarapacá',
+      ['turno','urgencia'].includes(typeFilter)?'duty':'all',
+      ''
+    );
+  }
+});
 $('#turno-search').addEventListener('input',render); $('#fit-map').addEventListener('click',fitVisibleMarkers);
 document.querySelectorAll('.turno-type-filter button').forEach(button=>button.addEventListener('click',async()=>{
   typeFilter=button.dataset.type;
@@ -238,7 +261,7 @@ document.querySelectorAll('.turno-type-filter button').forEach(button=>button.ad
   if(loadedMode!==requiredMode)await loadRegion(
     $('#turno-region').value||'Tarapacá',
     requiredMode,
-    ''
+    $('#turno-commune').value||''
   );else render()
 }));
 $('#use-location').addEventListener('click',()=>{

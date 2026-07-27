@@ -144,6 +144,47 @@ async function fetchSeremiCommuneNames(requestedRegion) {
   return (communes||[]).map(item=>text(item.nombre)).filter(Boolean);
 }
 
+async function fetchCommuneDirectory(requestedRegion, requestedCommune) {
+  const regions=await postSeremi({func:'regiones'});
+  const region=regionMatch(regions,requestedRegion);
+  if(!region)throw new Error('Región no disponible en SEREMI');
+  const communes=await postSeremi({func:'comunas',region:region.id});
+  const wanted=comparable(requestedCommune);
+  const commune=(communes||[]).find(item=>comparable(item.nombre)===wanted);
+  if(!commune)throw new Error('Comuna no disponible en SEREMI');
+  const latitude=number(commune.lat),longitude=number(commune.lng);
+  if(latitude===null||longitude===null)throw new Error('Comuna sin coordenadas oficiales');
+
+  // El directorio regional puede quedar truncado en exactamente 1.000 filas.
+  // Consultar un área centrada en la comuna evita depender de ese primer bloque.
+  // Si la comuna es extensa, ampliamos progresivamente el radio.
+  const radii=[
+    {latitude:.08,longitude:.10},
+    {latitude:.16,longitude:.20},
+    {latitude:.32,longitude:.38}
+  ];
+  let lastResult=null;
+  for(const radius of radii) {
+    const bounds={
+      south:latitude-radius.latitude,north:latitude+radius.latitude,
+      west:longitude-radius.longitude,east:longitude+radius.longitude
+    };
+    try {
+      const result=await fetchBuscaFarmaComplete(bounds,requestedRegion);
+      result.pharmacies=result.pharmacies.filter(item=>comparable(item.commune)===wanted);
+      result.communes=(communes||[]).map(item=>text(item.nombre)).filter(Boolean);
+      lastResult=result;
+      if(result.pharmacies.length)return result;
+    } catch {}
+  }
+  if(lastResult)return lastResult;
+
+  // Último respaldo: consulta directa al mapa oficial y detalle de sus locales.
+  const official=await fetchSeremiCommuneDirectory(requestedRegion,requestedCommune);
+  official.communes=(communes||[]).map(item=>text(item.nombre)).filter(Boolean);
+  return official;
+}
+
 function blobStore() { try { return getStore({name:'farmacias-turno',consistency:'strong'}); } catch { return null; } }
 async function readBlob(key) { try { return await blobStore()?.get(key,{type:'json'})||null; } catch { return null; } }
 async function writeBlob(key,value) { try { await blobStore()?.setJSON(key,value); } catch {} }
@@ -318,14 +359,13 @@ export default async (request) => {
       let result; let source;
       if(commune) {
         try {
-          result=await fetchBuscaFarmaComplete(bounds,region);
-          result.pharmacies=result.pharmacies.filter(item=>comparable(item.commune)===comparable(commune));
-          result.communes=await fetchSeremiCommuneNames(region);
-          source='Directorio general de farmacias · información pública consolidada';
+          result=await fetchCommuneDirectory(region,commune);
+          source='Directorio general por comuna · información pública consolidada';
         } catch {
           try { result=await fetchBuscaFarma(bounds,region); source='Directorio general de farmacias · información pública consolidada'; }
           catch { result=await fetchBuscaFarmaViaReader(bounds,region); source='Directorio general de farmacias · servicio de respaldo'; }
           result.pharmacies=result.pharmacies.filter(item=>comparable(item.commune)===comparable(commune));
+          try { result.communes=await fetchSeremiCommuneNames(region); } catch {}
         }
       } else {
         try { result=await fetchBuscaFarmaComplete(bounds,region); source='Directorio general de farmacias · información pública consolidada'; }
