@@ -196,6 +196,13 @@
 }
 .drop-zone:focus-within .recipe-file-button{outline:3px solid rgba(19,167,151,.2);outline-offset:3px}
 @media(max-width:600px){.recipe-file-button{width:min(100%,280px)}}
+.recipe-consent-requirement{padding:10px 12px;border-left:4px solid #e2aa45;border-radius:8px;background:#fff7e8;color:#694b12}
+.recipe-upload-permission{max-width:420px;margin:13px 0 0;padding:8px 11px;border-radius:9px;font-size:10px;font-weight:700;line-height:1.45}
+.recipe-upload-permission.required{border:1px solid #e2aa45;background:#fff7e8;color:#75510c}
+.recipe-upload-permission.authorized{border:1px solid #72c998;background:#eaf8f0;color:#137a42}
+.drop-zone.is-disabled{cursor:not-allowed;background:#f5f8f7}
+.drop-zone.is-disabled .upload-icon{filter:grayscale(.65);opacity:.62}
+.drop-zone.is-disabled .recipe-file-button{border-color:#a9bbb6;background:#c7d1ce;box-shadow:none;color:#5f706c;transform:none}
 @media(max-width:900px){
   .recipe-page-grid{grid-template-columns:1fr;gap:28px}
   .recipe-page-grid>div:first-child{max-width:680px}

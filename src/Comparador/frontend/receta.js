@@ -673,16 +673,34 @@ function optimizeReviewedMedicines() {
 $('#recipe-file-page').addEventListener('change', (event) => processRecipe(event.target.files[0]));
 const dropZone = $('#recipe-drop-zone');
 if (dropZone && !dropZone.querySelector('.recipe-file-button')) {
+  const permissionHint = document.createElement('span');
+  permissionHint.id = 'recipe-upload-permission';
+  permissionHint.className = 'recipe-upload-permission';
+  permissionHint.setAttribute('role', 'status');
+  permissionHint.setAttribute('aria-live', 'polite');
   const fileButton = document.createElement('span');
   fileButton.className = 'recipe-file-button';
   fileButton.textContent = 'Seleccionar archivo desde mi equipo';
   fileButton.setAttribute('aria-hidden', 'true');
   const formatHint = dropZone.querySelector('small');
+  dropZone.insertBefore(permissionHint, formatHint);
   dropZone.insertBefore(fileButton, formatHint);
 }
+dropZone.addEventListener('click', (event) => {
+  if ($('#recipe-consent')?.checked) return;
+  event.preventDefault();
+  const hint=$('#recipe-upload-permission');
+  if(hint)hint.textContent='Primero debes marcar la autorización de privacidad para habilitar la selección del archivo.';
+  $('#recipe-consent')?.focus();
+});
 dropZone.addEventListener('dragover', (event) => event.preventDefault());
 dropZone.addEventListener('drop', (event) => {
   event.preventDefault();
+  if (!$('#recipe-consent')?.checked) {
+    $('#recipe-upload-permission').textContent = 'Primero debes aceptar la autorización de procesamiento indicada arriba.';
+    $('#recipe-consent')?.focus();
+    return;
+  }
   processRecipe(event.dataTransfer.files[0]);
 });
 $('#recipe-optimize').addEventListener('click', optimizeReviewedMedicines);
@@ -693,19 +711,31 @@ if (privacyNotice) {
     <p><b>JPG, PNG y WEBP:</b> el reconocimiento se ejecuta localmente en este navegador. La imagen no se envía a AhorraMed ni se almacena.</p>
     <p><b>PDF:</b> actualmente no se envía a un servicio externo; escribe los medicamentos manualmente o convierte la página en imagen.</p>
     <p>Al eliminar la receta se limpian el archivo seleccionado, el texto detectado y los resultados de esta sesión. Oculta nombre, RUT, dirección, diagnóstico y datos del profesional cuando no sean necesarios.</p>
+    <p class="recipe-consent-requirement"><b>Paso 1 obligatorio:</b> lee esta información y marca la autorización antes de seleccionar, arrastrar o procesar una receta.</p>
     <label class="recipe-consent"><input id="recipe-consent" type="checkbox"> He leído esta información y autorizo el procesamiento local para identificar medicamentos.</label>
     <div class="recipe-privacy-actions"><a href="/privacidad">Política de privacidad</a><a href="/terminos">Términos de uso</a><button id="recipe-delete" type="button">Eliminar mi receta</button></div>`;
 }
 const activeRecipeConsent = $('#recipe-consent');
-if (recipeFile) recipeFile.disabled = true;
-activeRecipeConsent?.addEventListener('change', () => {
-  if (recipeFile) recipeFile.disabled = !activeRecipeConsent.checked;
-});
+function updateUploadPermission() {
+  const authorized=Boolean(activeRecipeConsent?.checked);
+  if(recipeFile)recipeFile.disabled=!authorized;
+  dropZone?.classList.toggle('is-disabled',!authorized);
+  dropZone?.setAttribute('aria-disabled',String(!authorized));
+  const hint=$('#recipe-upload-permission');
+  if(hint) {
+    hint.className=`recipe-upload-permission ${authorized?'authorized':'required'}`;
+    hint.textContent=authorized
+      ? 'Paso 1 completado. Ya puedes seleccionar o arrastrar tu receta.'
+      : 'Antes de continuar, marca la autorización de privacidad ubicada arriba.';
+  }
+}
+updateUploadPermission();
+activeRecipeConsent?.addEventListener('change',updateUploadPermission);
 $('#recipe-delete')?.addEventListener('click', () => {
   const file = $('#recipe-file-page');
   if (file) file.value = '';
   if (activeRecipeConsent) activeRecipeConsent.checked = false;
-  if (recipeFile) recipeFile.disabled = true;
+  updateUploadPermission();
   reviewedMedicines = [];
   $('#recipe-results').innerHTML = '';
   renderReview('', [], 'La receta y el texto detectado se eliminaron de esta sesión.');
