@@ -672,6 +672,14 @@ function optimizeReviewedMedicines() {
 
 $('#recipe-file-page').addEventListener('change', (event) => processRecipe(event.target.files[0]));
 const dropZone = $('#recipe-drop-zone');
+if (dropZone && !dropZone.querySelector('.recipe-file-button')) {
+  const fileButton = document.createElement('span');
+  fileButton.className = 'recipe-file-button';
+  fileButton.textContent = 'Seleccionar archivo desde mi equipo';
+  fileButton.setAttribute('aria-hidden', 'true');
+  const formatHint = dropZone.querySelector('small');
+  dropZone.insertBefore(fileButton, formatHint);
+}
 dropZone.addEventListener('dragover', (event) => event.preventDefault());
 dropZone.addEventListener('drop', (event) => {
   event.preventDefault();
