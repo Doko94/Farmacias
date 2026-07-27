@@ -99,7 +99,28 @@
 .recipe-unresolved-group{display:grid;gap:9px;padding:13px;border:1px solid #efc270;border-radius:14px;background:#fffaf0}
 .recipe-unresolved-group h4{margin:0;color:#75510c;font-size:13px}
 
-@media(max-width:600px){.recipe-manual-add{grid-template-columns:1fr}.recipe-manual-add button{min-height:43px}.recipe-purchase-result{padding:16px}.recipe-result-heading,.recipe-plan-metrics,.recipe-buy-modes{grid-template-columns:1fr}.recipe-result-summary{text-align:left}.recipe-purchase-line{grid-template-columns:26px minmax(0,1fr)}.recipe-purchase-line>strong{grid-column:2}.recipe-pharmacy-picker select{font-size:11px}.recipe-pharmacy-group>header{align-items:flex-start}.recipe-pharmacy-checks{display:grid;grid-template-columns:1fr 1fr}.recipe-pharmacy-checks label{border-radius:11px}}
+@media(max-width:600px){
+  .tool-main,.recipe-page-grid,.recipe-page-grid>.tool-card,.recipe-review{min-width:0;max-width:100%}
+  .recipe-page-grid>.tool-card{padding:16px;padding-bottom:calc(22px + env(safe-area-inset-bottom))}
+  .recipe-privacy-notice{padding:14px}
+  .drop-zone{min-height:205px}
+  /* iOS amplía automáticamente inputs menores de 16 px. */
+  .recipe-page-location select,
+  .recipe-medicine-row input,
+  .recipe-manual-add input,
+  .recipe-review textarea,
+  .recipe-pharmacy-picker select{font-size:16px;line-height:1.3}
+  .recipe-manual-add{grid-template-columns:1fr}
+  .recipe-manual-add button{min-height:46px}
+  .recipe-purchase-result{padding:16px}
+  .recipe-result-heading,.recipe-plan-metrics,.recipe-buy-modes{grid-template-columns:1fr}
+  .recipe-result-summary{text-align:left}
+  .recipe-purchase-line{grid-template-columns:26px minmax(0,1fr)}
+  .recipe-purchase-line>strong{grid-column:2}
+  .recipe-pharmacy-group>header{align-items:flex-start}
+  .recipe-pharmacy-checks{display:grid;grid-template-columns:1fr 1fr}
+  .recipe-pharmacy-checks label{border-radius:11px}
+}
 .recipe-privacy-notice{margin-bottom:1rem;padding:1rem 1.1rem;border:1.5px solid #13a797;border-radius:16px;background:#f2fbf9;color:#064764}
 .recipe-privacy-notice p{margin:.4rem 0;font-size:.86rem;line-height:1.5}
 .recipe-consent{display:flex;align-items:flex-start;gap:.55rem;margin:.8rem 0;font-weight:700;font-size:.84rem}

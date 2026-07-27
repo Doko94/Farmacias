@@ -1,4 +1,5 @@
 const $ = (selector) => document.querySelector(selector);
+const isMobileViewport = () => window.matchMedia('(max-width: 600px)').matches;
 const COMMUNES = {
   Tarapaca: ['Iquique'],
   'Arica y Parinacota': ['Arica'],
@@ -227,7 +228,8 @@ function renderReview(text = '', detected = [], notice = '') {
   $('#recipe-manual').addEventListener('keydown', (event) => {
     if (event.key === 'Enter') { event.preventDefault(); addManualMedicine(); }
   });
-  if (!reviewedMedicines.length) $('#recipe-manual').focus();
+  // Evita que Safari abra el teclado y mantenga el viewport ampliado.
+  if (!reviewedMedicines.length && !isMobileViewport()) $('#recipe-manual').focus();
 }
 
 function renderMedicineRows() {
@@ -262,7 +264,7 @@ function addManualMedicine() {
   if (!reviewedMedicines.some((item) => normalize(item) === normalize(value))) reviewedMedicines.push(value);
   input.value = '';
   renderMedicineRows();
-  input.focus();
+  if (!isMobileViewport()) input.focus();
 }
 
 function buildPharmacyPlans(medicines) {
@@ -428,10 +430,15 @@ async function prepareImage(file) {
     bitmap.close();
     throw new Error('La imagen supera el límite de 25 megapíxeles.');
   }
-  const scale = Math.min(4, Math.max(2, 1800 / bitmap.width));
+  // No dupliques fotos grandes: en móvil eso podía convertir 12 MP en 48 MP
+  // y bloquear temporalmente Safari durante el OCR.
+  const longestSide = Math.max(bitmap.width, bitmap.height);
+  const detailScale = Math.min(1.5, 2200 / longestSide);
+  const memoryScale = Math.sqrt(4_000_000 / (bitmap.width * bitmap.height));
+  const scale = Math.min(detailScale, memoryScale);
   const canvas = document.createElement('canvas');
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
+  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
   const context = canvas.getContext('2d', { willReadFrequently: true });
   context.fillStyle = '#fff';
   context.fillRect(0, 0, canvas.width, canvas.height);
@@ -491,8 +498,9 @@ async function processRecipe(file) {
     renderReview('', [], 'No se pudo cargar el lector automático. Aún puedes ingresar los medicamentos manualmente.');
     return;
   }
+  let image;
   try {
-    const image = await prepareImage(file);
+    image = await prepareImage(file);
     const result = await Tesseract.recognize(image, 'spa', {
       tessedit_pageseg_mode: '6',
       preserve_interword_spaces: '1',
@@ -509,6 +517,13 @@ async function processRecipe(file) {
     renderReview(text, detected, detected.length ? '' : 'No identificamos medicamentos con suficiente confianza. Agrégalos manualmente usando el catálogo.');
   } catch (error) {
     renderReview('', [], `No pudimos leer la imagen automáticamente. Puedes continuar manualmente. ${error.message || ''}`);
+  } finally {
+    // Safari conserva por más tiempo los buffers gráficos; liberarlos evita
+    // presión de memoria después de procesar una fotografía grande.
+    if (image instanceof HTMLCanvasElement) {
+      image.width = 1;
+      image.height = 1;
+    }
   }
 }
 
@@ -521,7 +536,7 @@ function optimizeReviewedMedicines() {
   const medicines = reviewedMedicines.map(cleanCandidate).filter(Boolean);
   if (!medicines.length) {
     results.innerHTML = '<div class="recipe-warning">Agrega al menos un medicamento antes de comparar.</div>';
-    $('#recipe-manual')?.focus();
+    if (!isMobileViewport()) $('#recipe-manual')?.focus();
     return;
   }
   const { reviewed, plans } = buildPharmacyPlans(medicines);
@@ -540,7 +555,7 @@ function optimizeReviewedMedicines() {
       <div class="recipe-plan-alert">Los precios mostrados son informativos y no garantizan disponibilidad. Revisa directamente con la farmacia antes de acudir.</div>
       <ul class="recipe-purchase-list">${unresolved.join('')}</ul>
     </section>`;
-    results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    results.scrollIntoView({ behavior: isMobileViewport() ? 'auto' : 'smooth', block: 'start' });
     return;
   }
   const bestCoverage = plans[0].coverage;
@@ -603,7 +618,7 @@ function optimizeReviewedMedicines() {
   document.querySelectorAll('.recipe-pharmacy-check').forEach((input) => {
     input.addEventListener('change', () => renderMultiPharmacyPlan(reviewed, activeMultiPharmacies()));
   });
-  results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  results.scrollIntoView({ behavior: isMobileViewport() ? 'auto' : 'smooth', block: 'start' });
 }
 
 $('#recipe-file-page').addEventListener('change', (event) => processRecipe(event.target.files[0]));
