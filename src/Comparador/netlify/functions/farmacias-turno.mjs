@@ -284,22 +284,34 @@ function splitBounds(bounds) {
   ];
 }
 
-async function fetchBuscaFarmaCell(bounds, region, depth=0, budget={remaining:32}) {
-  if(budget.remaining<=0)return [];
-  budget.remaining-=1;
-  const result=await fetchBuscaFarma(bounds,region);
-  if(result.pharmacies.length<950||depth>=5||budget.remaining<4)return [result];
+async function fetchBuscaFarmaCell(bounds, region, depth=0) {
+  let result;
+  try {
+    result=await fetchBuscaFarma(bounds,region);
+  } catch {
+    result=await fetchBuscaFarmaViaReader(bounds,region);
+  }
+  if(result.pharmacies.length<950||depth>=2)return [result];
+
+  // Cada rama conserva su propio recorrido. El contador global anterior
+  // podía agotarse en las zonas densas y dejar comunas completas sin pedir.
   const settled=await Promise.allSettled(
-    splitBounds(bounds).map(cell=>fetchBuscaFarmaCell(cell,region,depth+1,budget))
+    splitBounds(bounds).map(cell=>fetchBuscaFarmaCell(cell,region,depth+1))
   );
-  const children=settled
-    .filter(item=>item.status==='fulfilled')
-    .flatMap(item=>item.value);
-  return children.length?children:[result];
+  const successful=settled.filter(item=>item.status==='fulfilled');
+  const children=successful.flatMap(item=>item.value);
+  return successful.length===4?children:[result];
 }
 
 async function fetchBuscaFarmaComplete(bounds, region) {
-  const parts=await fetchBuscaFarmaCell(bounds,region);
+  // Consultamos siempre todas las celdas. Así la cobertura no depende del
+  // orden en que el proveedor responda ni de un máximo compartido.
+  const settled=await Promise.allSettled(
+    gridBounds(bounds,4).map(cell=>fetchBuscaFarmaCell(cell,region))
+  );
+  const successful=settled.filter(item=>item.status==='fulfilled');
+  const parts=successful.flatMap(item=>item.value);
+  if(successful.length<16)throw new Error(`Cobertura regional incompleta (${successful.length}/16 zonas)`);
   const rows=parts.flatMap(result=>result.pharmacies);
   const unique=new Map();
   rows.forEach(item=>{
@@ -405,9 +417,10 @@ const inside=(item,bounds)=>item.latitude>=bounds.south&&item.latitude<=bounds.n
 export default async (request) => {
   const now = Date.now();
   const url=new URL(request.url); const bounds=requestBounds(url); const region=text(url.searchParams.get('region')); const commune=text(url.searchParams.get('commune')); const mode=url.searchParams.get('mode')==='all'?'all':'duty';
-  const cacheKey=`${mode}|${region}|${comparable(commune)}|${Object.values(bounds).map(value=>value.toFixed(2)).join('|')}`;
+  const forceRefresh=url.searchParams.has('refresh');
+  const cacheKey=`coverage-v4|${mode}|${region}|${comparable(commune)}|${Object.values(bounds).map(value=>value.toFixed(2)).join('|')}`;
   const cached=memoryCache.get(cacheKey);
-  if (cached && now - cached.timestamp < CACHE_MS) {
+  if (!forceRefresh && cached && now - cached.timestamp < CACHE_MS) {
     return Response.json(cached.body, {headers:{'Cache-Control':'public, max-age=300, s-maxage=1800'}});
   }
   if(mode==='all') {
@@ -434,7 +447,7 @@ export default async (request) => {
         try { result.communes=await fetchSeremiCommuneNames(region); } catch {}
       }
       const body={source,source_url:result.endpoint,fetched_at:new Date().toISOString(),indirect:!source.startsWith('SEREMI'),directory:true,communes:result.communes||[],pharmacies:result.pharmacies};
-      memoryCache.set(cacheKey,{timestamp:now,body}); return Response.json(body,{headers:{'Cache-Control':'public, max-age=300, s-maxage=1800, stale-while-revalidate=86400'}});
+      memoryCache.set(cacheKey,{timestamp:now,body}); return Response.json(body,{headers:{'Cache-Control':forceRefresh?'no-store':'public, max-age=300, s-maxage=1800, stale-while-revalidate=86400'}});
     } catch(error) {
       if(cached)return Response.json({...cached.body,stale:true},{headers:{'Cache-Control':'no-cache'}});
       return Response.json({error:'El directorio general de farmacias no está disponible temporalmente.'},{status:503,headers:{'Cache-Control':'no-store'}});

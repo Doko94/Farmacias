@@ -199,6 +199,21 @@
 .turno-map-popup{display:grid;gap:5px;min-width:230px}
 .turno-map-popup>span:not(.turno-open-status){color:#466b77}
 .turno-map-popup .turno-open-status{margin-top:3px}
+.refresh-pharmacies{
+  grid-column:1/-1;
+  justify-self:end;
+  padding:8px 13px;
+  border:1.5px solid #79c7ba;
+  border-radius:10px;
+  background:#f2fbf8;
+  color:#087d70;
+  font:inherit;
+  font-size:11px;
+  font-weight:800;
+  cursor:pointer
+}
+.refresh-pharmacies:hover,.refresh-pharmacies:focus-visible{border-color:#13a797;background:#e3f7f1}
+.refresh-pharmacies:disabled{cursor:wait;opacity:.65}
 
 /* Contraste visual de paneles y tarjetas */
 .turno-filters{

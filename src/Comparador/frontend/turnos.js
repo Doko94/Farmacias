@@ -198,15 +198,16 @@ function render() {
   }
   fitVisibleMarkers();
 }
-async function loadRegion(region='Tarapacá',mode=['turno','urgencia'].includes(typeFilter)?'duty':'all',commune='') {
+async function loadRegion(region='Tarapacá',mode=['turno','urgencia'].includes(typeFilter)?'duty':'all',commune='',forceRefresh=false) {
   const bounds=REGION_BOUNDS[region]||REGION_BOUNDS.Tarapacá;
   // Versiona también la URL de la función para no reutilizar en el CDN una
   // respuesta regional antigua limitada a 1.000 establecimientos.
-  const params=new URLSearchParams({...bounds,region,mode,commune,dataset:'commune-coverage-v3'});
+  const params=new URLSearchParams({...bounds,region,mode,commune,dataset:'deterministic-coverage-v4'});
+  if(forceRefresh)params.set('refresh',String(Date.now()));
   $('#turno-status').hidden=false;
   $('#turno-status').textContent='Consultando farmacias de la región…';
   try {
-    const response=await fetch(`${API_URL}?${params}`); const payload=await response.json();
+    const response=await fetch(`${API_URL}?${params}`,forceRefresh?{cache:'no-store'}:undefined); const payload=await response.json();
     if(!response.ok) throw new Error(payload.error||'No fue posible consultar las farmacias');
     pharmacies=payload.pharmacies.map(item=>({...item,region:regionName(item)}));
     availableCommunes=Array.isArray(payload.communes)?payload.communes:[];
@@ -254,6 +255,19 @@ $('#turno-commune').addEventListener('change',event=>{
   }
 });
 $('#turno-search').addEventListener('input',render); $('#fit-map').addEventListener('click',fitVisibleMarkers);
+$('#refresh-pharmacies').addEventListener('click',async event=>{
+  const button=event.currentTarget;
+  button.disabled=true;
+  button.textContent='↻ Actualizando…';
+  await loadRegion(
+    $('#turno-region').value||'Tarapacá',
+    ['turno','urgencia'].includes(typeFilter)?'duty':'all',
+    $('#turno-commune').value||'',
+    true
+  );
+  button.disabled=false;
+  button.textContent='↻ Actualizar datos';
+});
 document.querySelectorAll('.turno-type-filter button').forEach(button=>button.addEventListener('click',async()=>{
   typeFilter=button.dataset.type;
   document.querySelectorAll('.turno-type-filter button').forEach(item=>{const active=item===button;item.classList.toggle('active',active);item.setAttribute('aria-pressed',String(active))});
