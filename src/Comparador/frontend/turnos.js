@@ -200,7 +200,9 @@ function render() {
 }
 async function loadRegion(region='Tarapacá',mode=['turno','urgencia'].includes(typeFilter)?'duty':'all',commune='') {
   const bounds=REGION_BOUNDS[region]||REGION_BOUNDS.Tarapacá;
-  const params=new URLSearchParams({...bounds,region,mode,commune});
+  // Versiona también la URL de la función para no reutilizar en el CDN una
+  // respuesta regional antigua limitada a 1.000 establecimientos.
+  const params=new URLSearchParams({...bounds,region,mode,commune,dataset:'regional-grid-v2'});
   $('#turno-status').hidden=false;
   $('#turno-status').textContent='Consultando farmacias de la región…';
   try {

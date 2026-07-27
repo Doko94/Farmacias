@@ -333,6 +333,47 @@ async function fetchBuscaFarmaViaReader(bounds, region) {
   return normalizeBuscaFarmaRows(rows,endpoint,region);
 }
 
+function gridBounds(bounds, divisions=4) {
+  const cells=[];
+  const latitudeStep=(bounds.north-bounds.south)/divisions;
+  const longitudeStep=(bounds.east-bounds.west)/divisions;
+  for(let row=0;row<divisions;row+=1) {
+    for(let column=0;column<divisions;column+=1) {
+      cells.push({
+        south:bounds.south+latitudeStep*row,
+        north:row===divisions-1?bounds.north:bounds.south+latitudeStep*(row+1),
+        west:bounds.west+longitudeStep*column,
+        east:column===divisions-1?bounds.east:bounds.west+longitudeStep*(column+1)
+      });
+    }
+  }
+  return cells;
+}
+
+async function fetchBuscaFarmaCompleteViaReader(bounds, region) {
+  // El lector de respaldo también limita una respuesta regional a 1.000
+  // locales. Consultamos una cuadrícula para que ninguna zona quede fuera
+  // del primer bloque y luego eliminamos establecimientos repetidos.
+  const settled=await Promise.allSettled(
+    gridBounds(bounds,4).map(cell=>fetchBuscaFarmaViaReader(cell,region))
+  );
+  const fulfilled=settled
+    .filter(item=>item.status==='fulfilled')
+    .map(item=>item.value);
+  if(!fulfilled.length)throw new Error('El servicio de respaldo no devolvió celdas regionales');
+  const unique=new Map();
+  fulfilled.flatMap(result=>result.pharmacies).forEach(item=>{
+    const key=item.id||`${comparable(item.name)}|${comparable(item.address)}|${item.latitude}|${item.longitude}`;
+    if(!unique.has(key))unique.set(key,item);
+  });
+  return {
+    endpoint:fulfilled[0].endpoint,
+    pharmacies:[...unique.values()].filter(item=>inside(item,bounds)),
+    partial:fulfilled.length<16,
+    cells_loaded:fulfilled.length
+  };
+}
+
 function requestBounds(url) {
   const defaults={south:-21,north:-19.5,west:-71.5,east:-69};
   const bounds={};
@@ -369,7 +410,12 @@ export default async (request) => {
         }
       } else {
         try { result=await fetchBuscaFarmaComplete(bounds,region); source='Directorio general de farmacias · información pública consolidada'; }
-        catch { result=await fetchBuscaFarmaViaReader(bounds,region); source='Directorio general de farmacias · servicio de respaldo'; }
+        catch {
+          result=await fetchBuscaFarmaCompleteViaReader(bounds,region);
+          source=result.partial
+            ? `Directorio general de farmacias · respaldo parcial (${result.cells_loaded}/16 zonas)`
+            : 'Directorio general de farmacias · respaldo regional completo';
+        }
         try { result.communes=await fetchSeremiCommuneNames(region); } catch {}
       }
       const body={source,source_url:result.endpoint,fetched_at:new Date().toISOString(),indirect:!source.startsWith('SEREMI'),directory:true,communes:result.communes||[],pharmacies:result.pharmacies};
