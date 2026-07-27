@@ -163,21 +163,36 @@ async function fetchCommuneDirectory(requestedRegion, requestedCommune) {
     {latitude:.16,longitude:.20},
     {latitude:.32,longitude:.38}
   ];
-  let lastResult=null;
-  for(const radius of radii) {
+  const unique=new Map();
+  let endpoint='';
+  for(let index=0;index<radii.length;index+=1) {
+    const radius=radii[index];
     const bounds={
       south:latitude-radius.latitude,north:latitude+radius.latitude,
       west:longitude-radius.longitude,east:longitude+radius.longitude
     };
     try {
       const result=await fetchBuscaFarmaComplete(bounds,requestedRegion);
-      result.pharmacies=result.pharmacies.filter(item=>comparable(item.commune)===wanted);
-      result.communes=(communes||[]).map(item=>text(item.nombre)).filter(Boolean);
-      lastResult=result;
-      if(result.pharmacies.length)return result;
+      endpoint=result.endpoint||endpoint;
+      const before=unique.size;
+      result.pharmacies
+        .filter(item=>comparable(item.commune)===wanted)
+        .forEach(item=>{
+          const key=item.id||`${comparable(item.name)}|${comparable(item.address)}|${item.latitude}|${item.longitude}`;
+          if(!unique.has(key))unique.set(key,item);
+        });
+      // Siempre verificamos al menos un radio mayor. Si la ampliación no
+      // aporta locales nuevos, la cobertura comunal ya se estabilizó.
+      if(index>0&&unique.size>0&&unique.size===before)break;
     } catch {}
   }
-  if(lastResult)return lastResult;
+  if(unique.size) {
+    return {
+      endpoint,
+      communes:(communes||[]).map(item=>text(item.nombre)).filter(Boolean),
+      pharmacies:[...unique.values()]
+    };
+  }
 
   // Último respaldo: consulta directa al mapa oficial y detalle de sus locales.
   const official=await fetchSeremiCommuneDirectory(requestedRegion,requestedCommune);
