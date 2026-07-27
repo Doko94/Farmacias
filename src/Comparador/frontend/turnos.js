@@ -200,15 +200,29 @@ function render() {
 }
 async function loadRegion(region='Tarapacá',mode=['turno','urgencia'].includes(typeFilter)?'duty':'all',commune='',forceRefresh=false) {
   const bounds=REGION_BOUNDS[region]||REGION_BOUNDS.Tarapacá;
+  const storageKey=`ahorramed:pharmacies:v5:${mode}:${normalize(region)}:${normalize(commune)}`;
   // Versiona también la URL de la función para no reutilizar en el CDN una
   // respuesta regional antigua limitada a 1.000 establecimientos.
   const params=new URLSearchParams({...bounds,region,mode,commune,dataset:'deterministic-coverage-v4'});
   if(forceRefresh)params.set('refresh',String(Date.now()));
   $('#turno-status').hidden=false;
-  $('#turno-status').textContent='Consultando farmacias de la región…';
+  $('#turno-status').textContent=commune
+    ? `Consultando farmacias de ${commune}…`
+    : 'Consultando farmacias de la región…';
   try {
-    const response=await fetch(`${API_URL}?${params}`,forceRefresh?{cache:'no-store'}:undefined); const payload=await response.json();
+    const response=await fetch(`${API_URL}?${params}`,forceRefresh?{cache:'no-store'}:undefined);
+    const contentType=response.headers.get('content-type')||'';
+    if(!contentType.includes('application/json')) {
+      throw new Error('El servicio demoró más de lo esperado');
+    }
+    const payload=await response.json();
     if(!response.ok) throw new Error(payload.error||'No fue posible consultar las farmacias');
+    try {
+      localStorage.setItem(storageKey,JSON.stringify({
+        savedAt:Date.now(),
+        payload
+      }));
+    } catch {}
     pharmacies=payload.pharmacies.map(item=>({...item,region:regionName(item)}));
     availableCommunes=Array.isArray(payload.communes)?payload.communes:[];
     loadedMode=mode;
@@ -227,9 +241,30 @@ async function loadRegion(region='Tarapacá',mode=['turno','urgencia'].includes(
     $('#turno-source').textContent=`Fuente: ${payload.source}${payload.indirect?' · fuente de respaldo':''}${payload.stale?' · última copia disponible':''} · consultado ${new Intl.DateTimeFormat('es-CL',{dateStyle:'medium',timeStyle:'short'}).format(new Date(payload.fetched_at))}`;
     render();
   } catch(error) {
-    pharmacies=[]; availableCommunes=[]; clearMarkers(); $('#turno-count').textContent='0'; updateCommunes();
-    $('#turno-status').hidden=false; $('#turno-status').innerHTML='No fue posible actualizar la información en este momento. <a href="https://seremienlinea.minsal.cl/asdigital/index.php?mfarmacias" target="_blank" rel="noopener">Consultar el mapa oficial MINSAL</a>.';
-    $('#turno-source').textContent=error.message;
+    // Una actualización fallida nunca debe borrar un listado válido que el
+    // usuario ya estaba revisando.
+    let restored=false;
+    if(!pharmacies.length) {
+      try {
+        const saved=JSON.parse(localStorage.getItem(storageKey)||'null');
+        if(saved?.payload?.pharmacies?.length) {
+          const payload=saved.payload;
+          pharmacies=payload.pharmacies.map(item=>({...item,region:regionName(item)}));
+          availableCommunes=Array.isArray(payload.communes)?payload.communes:[];
+          loadedMode=mode;
+          $('#turno-region').value=region;
+          updateCommunes();
+          if(commune)$('#turno-commune').value=commune;
+          render();
+          restored=true;
+        }
+      } catch {}
+    }
+    $('#turno-status').hidden=restored||pharmacies.length>0;
+    if(!$('#turno-status').hidden)$('#turno-status').innerHTML='No fue posible actualizar la información en este momento. <a href="https://seremienlinea.minsal.cl/asdigital/index.php?mfarmacias" target="_blank" rel="noopener">Consultar el mapa oficial MINSAL</a>.';
+    $('#turno-source').textContent=pharmacies.length
+      ? 'Se muestran los últimos resultados guardados. La actualización en línea puede intentarse nuevamente.'
+      : 'El servicio está temporalmente ocupado. Intenta nuevamente en unos segundos.';
   }
 }
 setOptions($('#turno-region'),Object.keys(REGION_BOUNDS),'Selecciona una región');

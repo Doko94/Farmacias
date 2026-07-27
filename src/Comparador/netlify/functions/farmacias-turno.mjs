@@ -172,7 +172,20 @@ async function fetchCommuneDirectory(requestedRegion, requestedCommune) {
       west:longitude-radius.longitude,east:longitude+radius.longitude
     };
     try {
-      const result=await fetchBuscaFarmaComplete(bounds,requestedRegion);
+      // Una consulta comunal no necesita recorrer nuevamente las 16 celdas
+      // regionales. Eso podía generar hasta 48 peticiones y agotar el tiempo
+      // de una función de Netlify. Consultamos cada radio una sola vez y sólo
+      // subdividimos si el proveedor informa su límite de 1.000 registros.
+      let parts;
+      try {
+        parts=await fetchBuscaFarmaCell(bounds,requestedRegion);
+      } catch {
+        parts=[await fetchBuscaFarmaViaReader(bounds,requestedRegion)];
+      }
+      const result={
+        endpoint:parts[0]?.endpoint||'https://buscafarma.cl/api/farmacias',
+        pharmacies:parts.flatMap(part=>part.pharmacies)
+      };
       endpoint=result.endpoint||endpoint;
       const before=unique.size;
       result.pharmacies
@@ -418,7 +431,7 @@ export default async (request) => {
   const now = Date.now();
   const url=new URL(request.url); const bounds=requestBounds(url); const region=text(url.searchParams.get('region')); const commune=text(url.searchParams.get('commune')); const mode=url.searchParams.get('mode')==='all'?'all':'duty';
   const forceRefresh=url.searchParams.has('refresh');
-  const cacheKey=`coverage-v4|${mode}|${region}|${comparable(commune)}|${Object.values(bounds).map(value=>value.toFixed(2)).join('|')}`;
+  const cacheKey=`coverage-v5|${mode}|${region}|${comparable(commune)}|${Object.values(bounds).map(value=>value.toFixed(2)).join('|')}`;
   const cached=memoryCache.get(cacheKey);
   if (!forceRefresh && cached && now - cached.timestamp < CACHE_MS) {
     return Response.json(cached.body, {headers:{'Cache-Control':'public, max-age=300, s-maxage=1800'}});
