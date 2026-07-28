@@ -25,6 +25,11 @@ let cart = [];
 let suggestions = [];
 let activeSuggestion = -1;
 
+const bioTitle=document.querySelector('.bio-switch b');
+const bioDescription=document.querySelector('.bio-switch small');
+if(bioTitle)bioTitle.textContent='Incluir alternativas informadas como bioequivalentes';
+if(bioDescription)bioDescription.textContent='Se identificarán como alternativas de otra marca. Confirma concentración, forma, cantidad y condición vigente antes de elegirlas.';
+
 async function loadCatalog() {
   const manifest = await fetch('./data/manifest.json').then((response) => response.json());
   const entry = manifest.locations[`${$('#cart-region').value}|${$('#cart-commune').value}`];
@@ -247,7 +252,7 @@ function compare() {
 
 function linesHtml(lines) {
   return lines.map((line) => `<li><div><b>${escape(line.offer.name)}</b>
-    <small>${line.item.quantity} × ${money(line.offer.price)}${line.offer.bioequivalent ? ' · Bioequivalente' : ''}</small>
+    <small>${line.item.quantity} × ${money(line.offer.price)}${line.offer.bioequivalent ? ' · Alternativa informada como bioequivalente' : ' · Producto solicitado'}</small>
     </div><strong>${money(line.subtotal)}</strong></li>`).join('');
 }
 
@@ -352,6 +357,12 @@ $('#cart-clear').addEventListener('click', () => {
 });
 $('#compare-cart').addEventListener('click', compare);
 $('#cart-bio').addEventListener('change', () => {
+  if($('#cart-bio').checked&&!window.confirm(
+    'Las alternativas bioequivalentes pueden tener otra marca. No modifican la receta y debes confirmar concentración, forma farmacéutica, cantidad y condición vigente. ¿Deseas incluirlas en esta comparación?'
+  )){
+    $('#cart-bio').checked=false;
+    return;
+  }
   if (cart.length && !$('#cart-results').hidden) compare();
 });
 $('#cart-region').addEventListener('change', async () => {

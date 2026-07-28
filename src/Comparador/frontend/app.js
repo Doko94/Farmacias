@@ -111,6 +111,11 @@ function localScore(query, product) {
 }
 async function searchStaticCatalog(query) {
   const products=await loadStaticCatalog();
+  if (!products.length) {
+    const error=new Error('Sin cobertura para esta ubicación');
+    error.code='NO_COVERAGE';
+    throw error;
+  }
   return products.filter(product=>strictProductMatch(query,product))
     .map(product=>({product,score:localScore(query,product)}))
     .filter(item=>item.score>=0.5)
@@ -148,12 +153,13 @@ async function updateHeroCoverage() {
     $('#hero-metric-date').textContent=`Última captura: ${formatDate(entry.updated_at)}`;
     renderHeroBars(Array.from({length:entry.pharmacies},(_,index)=>({label:`Farmacia ${index+1}`,value:index+1})));
   } catch {
-    $('#hero-metric-label').textContent='Cobertura del catálogo';
-    $('#hero-metric-value').textContent='4 farmacias';
-    $('#hero-metric-context').textContent='Selecciona una ubicación y busca un medicamento';
-    $('#hero-metric-detail').textContent='Datos pendientes de cargar';
+    $('#hero-metric-label').textContent='No pudimos consultar la cobertura';
+    $('#hero-metric-value').textContent='—';
+    $('#hero-metric-context').textContent='Revisa tu conexión e intenta nuevamente';
+    $('#hero-metric-detail').textContent='Cobertura no disponible';
     $('#hero-metric-percent').textContent='—';
     $('#hero-metric-date').textContent='';
+    $('#hero-chart').replaceChildren();
   }
 }
 
@@ -190,7 +196,10 @@ function updateHeroSearch(products, query) {
 
 async function api(path, options={}) {
   if (!API_BASE) throw new Error('API no configurada');
-  const response = await fetch(`${API_BASE}${path}`, options);
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),12000);
+  const response = await fetch(`${API_BASE}${path}`, {...options,signal:options.signal||controller.signal})
+    .finally(()=>clearTimeout(timeout));
   if (!response.ok) throw new Error((await response.text()) || 'No se pudo consultar la API');
   return response.json();
 }
@@ -234,6 +243,9 @@ function renderResults(products, source='api') {
     const pharmacyNotice=product.pharmacy==='Farmacia Municipal Iquique'?'<small class="municipal-notice">Beneficio para personas inscritas con domicilio acreditado en Iquique.</small>':'';
     const badges=`<div class="product-badges">${product.bioequivalent?'<span class="product-badge bioequivalent">B Bioequivalente</span>':''}${product.fonasa_price?'<span class="product-badge fonasa">Fonasa</span>':''}</div>`;
     const fonasaPrice=product.fonasa_price?`<div class="fonasa-price"><span>Precio Fonasa</span><strong>${money(product.fonasa_price)}</strong></div>`:'';
+    const priceCondition=product.list_price>product.price
+      ?'<small class="price-condition"><b>Oferta publicada</b> · Condiciones de oferta no identificadas · Despacho no incluido</small>'
+      :'<small class="price-condition"><b>Precio público informado</b> · Despacho no incluido</small>';
     const stockWarning=product.available===false||Number(product.stock_quantity)===0
       ?'<div class="stock-warning" role="note"><span aria-hidden="true">⚠</span><p><b>Disponibilidad por confirmar</b>Revisa directamente con la farmacia antes de acudir.</p></div>'
       :'';
@@ -254,7 +266,7 @@ function renderResults(products, source='api') {
     const matchExplanation=`<small class="match-explanation"><b>Por qué coincide:</b> ${escapeHtml(reasons.join(' · ')||'nombre o marca del producto')}</small>`;
     const stockClass=product.available===true?'in-stock':product.available===false?'out-stock':'unknown-stock';
     const stockIcon=product.available===true?'●':product.available===false?'○':'?';
-    card.innerHTML=`${isBest?'<span class="best-badge"><i>✓</i> Mejor opción</span>':''}${pharmacyTitle}${pharmacyNotice}<h3>${escapeHtml(product.name)}</h3><span>${escapeHtml(product.brand||'Marca no informada')}</span>${product.active_ingredient?`<small><b>Principio activo:</b> ${escapeHtml(product.active_ingredient)}</small>`:''}${badges}${fonasaPrice}<div><span class="price">${money(product.price)}</span> ${product.list_price?`<span class="old">${money(product.list_price)}</span>`:''}</div>${unitPrice}<div class="result-meta"><span class="stock-status ${stockClass}">${stockIcon} ${escapeHtml(stock)}</span><span>${escapeHtml(commune)}, ${escapeHtml(region)}</span><span class="freshness-badge ${age.level}" title="${escapeHtml(formatDate(product.captured_at))}">Última verificación: ${escapeHtml(age.label)}</span><span>Fuente: sitio web de ${escapeHtml(product.pharmacy)}</span></div>${stockWarning}${unknownStockWarning}${matchExplanation}<small>${isBest?'Coincidencia exacta · Menor precio disponible':'Coincidencia exacta · Comparado'}</small>${action}`;
+    card.innerHTML=`${isBest?'<span class="best-badge"><i aria-hidden="true">✓</i> Mejor opción</span>':''}${pharmacyTitle}${pharmacyNotice}<h3>${escapeHtml(product.name)}</h3><span>${escapeHtml(product.brand||'Marca no informada')}</span>${product.active_ingredient?`<small><b>Principio activo:</b> ${escapeHtml(product.active_ingredient)}</small>`:''}${badges}${fonasaPrice}<div><span class="price">${money(product.price)}</span> ${product.list_price?`<span class="old">${money(product.list_price)}</span>`:''}</div>${priceCondition}${unitPrice}<div class="result-meta"><span class="stock-status ${stockClass}">${stockIcon} ${escapeHtml(stock)}</span><span>${escapeHtml(commune)}, ${escapeHtml(region)}</span><span class="freshness-badge ${age.level}" title="${escapeHtml(formatDate(product.captured_at))}">Última verificación: ${escapeHtml(age.label)}</span><span>Fuente: sitio web de ${escapeHtml(product.pharmacy)}</span></div>${stockWarning}${unknownStockWarning}${matchExplanation}<small>${isBest?'Coincidencia exacta · Menor precio disponible':'Coincidencia exacta · Comparado'}</small>${action}`;
     const productHeading=card.querySelector('h3');
     if(productHeading){
       const summary=document.createElement('div');
@@ -326,6 +338,8 @@ let searchSuggestionTimer;
 let searchSuggestionItems = [];
 let activeSearchSuggestion = -1;
 let searchSuggestionRequest = 0;
+let selectedSearchProduct = '';
+let searchSubmitting = false;
 
 function closeSearchSuggestions() {
   searchSuggestionRequest += 1;
@@ -342,6 +356,7 @@ function selectSearchSuggestion(index) {
   const product = searchSuggestionItems[index];
   if (!product) return;
   $('#search-input').value = product.name;
+  selectedSearchProduct = normalizeText(product.name);
   closeSearchSuggestions();
   $('#search-input').focus();
 }
@@ -399,7 +414,15 @@ async function refreshSearchSuggestions(rawQuery) {
     .slice(0, 8);
   const box = $('#search-suggestions');
   if (!searchSuggestionItems.length) {
-    closeSearchSuggestions();
+    box.replaceChildren();
+    const empty=document.createElement('div');
+    empty.className='search-suggestion-empty';
+    empty.setAttribute('role','status');
+    empty.textContent=`No encontramos “${validation.value}”. Revisa la ortografía o busca por marca o principio activo.`;
+    box.appendChild(empty);
+    box.hidden=false;
+    activeSearchSuggestion=-1;
+    $('#search-input').setAttribute('aria-expanded','true');
     return;
   }
   box.innerHTML = searchSuggestionItems.map((product, index) => `
@@ -426,11 +449,23 @@ async function refreshSearchSuggestions(rawQuery) {
 
 $('#search-form').addEventListener('submit', async (event)=>{
   event.preventDefault();
+  if(searchSubmitting)return;
   closeSearchSuggestions();
   const validation=validateSearchQuery($('#search-input').value); const validationMessage=$('#search-validation');
   if(validation.error){validationMessage.textContent=validation.error;$('#search-input').setAttribute('aria-invalid','true');$('#search-input').focus();return;}
+  if(selectedSearchProduct!==normalizeText(validation.value)){
+    validationMessage.textContent='Selecciona un producto de la lista de sugerencias para comparar una presentación real del catálogo.';
+    $('#search-input').setAttribute('aria-invalid','true');
+    $('#search-input').focus();
+    refreshSearchSuggestions(validation.value).catch(closeSearchSuggestions);
+    return;
+  }
   validationMessage.textContent=''; $('#search-input').removeAttribute('aria-invalid'); $('#search-input').value=validation.value;
   const q=validation.value; const {region,commune}=locationValue();
+  const submitButton=$('#search-form button[type="submit"]');
+  searchSubmitting=true;
+  submitButton.disabled=true;
+  submitButton.textContent='Comparando…';
   document.querySelector('#comparar').scrollIntoView({behavior:'smooth',block:'start'});
   $('#clear-results').hidden=false;
   $('#search-status').hidden=false; $('#search-status').innerHTML='<h3>Comparando farmacias…</h3>';
@@ -439,10 +474,16 @@ $('#search-form').addEventListener('submit', async (event)=>{
     try { renderResults(await searchStaticCatalog(q),'static'); }
     catch { renderApiUnavailable(q); }
   }
+  finally {
+    searchSubmitting=false;
+    submitButton.disabled=false;
+    submitButton.textContent='Comparar precios';
+  }
 });
 
 $('#search-input').addEventListener('input',()=>{
   const input=$('#search-input');
+  selectedSearchProduct='';
   if(input.hasAttribute('aria-invalid')){
     input.removeAttribute('aria-invalid');
     $('#search-validation').textContent='';

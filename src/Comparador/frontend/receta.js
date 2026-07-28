@@ -672,6 +672,7 @@ function optimizeReviewedMedicines() {
 
 $('#recipe-file-page').addEventListener('change', (event) => processRecipe(event.target.files[0]));
 const dropZone = $('#recipe-drop-zone');
+dropZone?.querySelector('.upload-icon')?.setAttribute('aria-hidden','true');
 if (dropZone && !dropZone.querySelector('.recipe-file-button')) {
   const permissionHint = document.createElement('span');
   permissionHint.id = 'recipe-upload-permission';

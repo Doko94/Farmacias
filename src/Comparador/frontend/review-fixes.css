@@ -137,3 +137,26 @@
   font-weight: 800;
   cursor: pointer;
 }
+/* Estados y navegación accesibles */
+:where(a, button, input, select, textarea, summary):focus-visible {
+  outline: 3px solid #f5a623;
+  outline-offset: 3px;
+}
+
+.search-suggestion-empty {
+  padding: 1rem 1.15rem;
+  color: #064764;
+  background: #fffaf0;
+  border: 1px solid #f0b95a;
+  border-radius: 14px;
+  line-height: 1.45;
+}
+
+[aria-busy="true"] {
+  cursor: progress;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: .68;
+}
