@@ -13,6 +13,64 @@
     return pathname.split('/').pop() || 'index';
   };
 
+  function initAutocompleteClearButtons() {
+    const selector = 'input[aria-autocomplete="list"], input[list]:not(.recipe-medicine-input)';
+    const enhance = (input) => {
+      if (!(input instanceof HTMLInputElement) || input.dataset.clearButtonReady === 'true') return;
+      input.dataset.clearButtonReady = 'true';
+
+      let root = input.closest('.tool-search-wrap, .cart-search-wrap, .autocomplete-clear-wrap');
+      if (!root) {
+        root = document.createElement('span');
+        root.className = 'autocomplete-clear-wrap';
+        input.before(root);
+        root.appendChild(input);
+      }
+      root.classList.add('autocomplete-clear-root');
+
+      const clear = document.createElement('button');
+      clear.type = 'button';
+      clear.className = 'autocomplete-clear-button';
+      clear.setAttribute('aria-label', 'Borrar búsqueda');
+      clear.title = 'Borrar búsqueda';
+      clear.textContent = '×';
+      clear.hidden = !input.value;
+      input.insertAdjacentElement('afterend', clear);
+
+      const update = () => { clear.hidden = !input.value; };
+      input.addEventListener('input', update);
+      input.addEventListener('change', update);
+      clear.addEventListener('pointerdown', (event) => event.preventDefault());
+      clear.addEventListener('click', () => {
+        input.value = '';
+        input.removeAttribute('aria-activedescendant');
+        input.setAttribute('aria-expanded', 'false');
+        const suggestionsId = input.getAttribute('aria-controls');
+        const suggestions = suggestionsId ? document.getElementById(suggestionsId) : null;
+        if (suggestions) {
+          suggestions.hidden = true;
+          suggestions.replaceChildren();
+        }
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        input.dispatchEvent(new CustomEvent('autocomplete:clear', { bubbles: true }));
+        update();
+        input.focus({ preventScroll: true });
+      });
+    };
+
+    const scan = (root = document) => {
+      if (root instanceof Element && root.matches(selector)) enhance(root);
+      root.querySelectorAll?.(selector).forEach(enhance);
+    };
+    scan();
+    new MutationObserver((records) => {
+      records.forEach((record) => record.addedNodes.forEach((node) => {
+        if (node instanceof Element) scan(node);
+      }));
+    }).observe(document.body, { childList: true, subtree: true });
+  }
+
   function initNavigation() {
     if (!document.querySelector('.prototype-banner')) {
       const banner = document.createElement('div');
@@ -21,6 +79,7 @@
       banner.textContent = 'Versión de prueba · Los datos y funcionalidades pueden estar incompletos.';
       document.body.prepend(banner);
     }
+    initAutocompleteClearButtons();
     const legacyPage = location.pathname.match(/\/([a-z0-9-]+)\.html$/i);
     if (legacyPage) {
       const cleanPath = legacyPage[1].toLowerCase() === 'index' ? '/' : `/${legacyPage[1]}`;

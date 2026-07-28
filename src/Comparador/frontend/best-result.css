@@ -707,6 +707,39 @@ h1 span {
 .location-row .external-seller-filter{margin-left:auto;font-weight:700;color:#466b77}
 .external-seller-filter input{accent-color:#13a797}
 @media(max-width:600px){.location-row .external-seller-filter{margin-left:0}}
+.autocomplete-clear-wrap,.autocomplete-clear-root{position:relative;display:block;min-width:0}
+.search-box>.autocomplete-clear-wrap{flex:1}
+.autocomplete-clear-root>input{width:100%;padding-right:46px!important}
+.autocomplete-clear-button{
+  position:absolute;
+  z-index:30;
+  top:50%;
+  right:9px;
+  display:grid;
+  place-items:center;
+  width:34px;
+  height:34px;
+  min-height:0!important;
+  margin:0!important;
+  padding:0!important;
+  transform:translateY(-50%)!important;
+  border:1px solid #b7ddd6!important;
+  border-radius:50%!important;
+  background:#eef8f6!important;
+  color:#087f72!important;
+  box-shadow:none!important;
+  font-size:23px!important;
+  font-weight:700!important;
+  line-height:1!important;
+  cursor:pointer
+}
+.autocomplete-clear-button:hover,.autocomplete-clear-button:focus-visible{border-color:#13a797!important;background:#dff4ef!important;color:#064764!important}
+.autocomplete-clear-button:focus-visible{outline:3px solid rgba(19,167,151,.22);outline-offset:2px}
+.autocomplete-clear-button[hidden]{display:none!important}
+@media(max-width:600px){
+  .autocomplete-clear-button{right:7px;width:38px;height:38px;font-size:25px!important}
+  .autocomplete-clear-root>input{padding-right:50px!important}
+}
 @media(max-width:600px){
   html,body{width:100%;max-width:100%;overflow-x:hidden}
   .hero .container.hero-grid{width:calc(100% - 40px);margin-right:auto;margin-left:auto}
