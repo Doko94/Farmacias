@@ -64,6 +64,32 @@ function selectSuggestion(index) {
   $('#cart-quantity').focus();
 }
 
+function decorateCartSuggestions() {
+  $('#cart-suggestions').querySelectorAll('button[data-index]').forEach((button) => {
+    const product = suggestions[Number(button.dataset.index)];
+    if (!product) return;
+    button.classList.add('tool-suggestion-option');
+    const media = document.createElement('span');
+    media.className = 'tool-suggestion-image';
+    if (/^https?:\/\//i.test(String(product.image || ''))) {
+      const image = document.createElement('img');
+      image.src = product.image;
+      image.alt = '';
+      image.loading = 'lazy';
+      image.referrerPolicy = 'no-referrer';
+      image.addEventListener('error', () => media.replaceChildren(document.createTextNode('Rx')), { once: true });
+      media.append(image);
+    } else {
+      media.textContent = 'Rx';
+    }
+    const copy = document.createElement('span');
+    copy.className = 'tool-suggestion-copy';
+    [...button.children].forEach((element) => copy.append(element));
+    button.prepend(media);
+    button.append(copy);
+  });
+}
+
 function refreshSuggestions(query) {
   if (!selectedCartProduct || normalize(selectedCartProduct.name) !== normalize(query)) selectedCartProduct = null;
   const terms = normalize(query).split(' ').filter((term) => term.length > 1);
@@ -93,6 +119,7 @@ function refreshSuggestions(query) {
       selectSuggestion(Number(button.dataset.index));
     }));
   }
+  decorateCartSuggestions();
   list.hidden = false;
   $('#cart-query').setAttribute('aria-expanded', 'true');
 }

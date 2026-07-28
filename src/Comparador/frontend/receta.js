@@ -7,9 +7,14 @@ const COMMUNES = {
 };
 
 let catalog = [];
+let recipeSearchIndex = [];
 let reviewedMedicines = [];
 let activeOcrWorker = null;
 let ocrCancelled = false;
+let selectedManualProduct = null;
+let manualSuggestions = [];
+let activeManualSuggestion = -1;
+let manualSuggestionTimer = null;
 
 const normalize = (value = '') => value
   .toLowerCase()
@@ -39,6 +44,11 @@ async function loadCatalog() {
   const manifest = await fetch('./data/manifest.json').then((response) => response.json());
   const entry = manifest.locations[`${$('#recipe-region').value}|${$('#recipe-commune').value}`];
   catalog = entry ? await fetch(`./data/${entry.file}`).then((response) => response.json()) : [];
+  recipeSearchIndex = catalog.map((product) => ({
+    product,
+    text: normalize(`${product.name} ${product.brand || ''} ${product.active_ingredient || ''}`),
+  }));
+  selectedManualProduct = null;
   refreshCatalogOptions();
 }
 
@@ -242,6 +252,112 @@ function setRecipeActionState(state='idle') {
   if(ready)guidance.innerHTML='<b>Lectura terminada: revisa los medicamentos</b><span>Corrige o elimina cualquier resultado incorrecto. Cuando estés conforme, presiona <strong>Comparar receta revisada</strong>.</span>';
 }
 
+function recipeProductImage(product) {
+  return safeExternalUrl(product.image || product.image_url || product.imagen || '');
+}
+
+function closeManualSuggestions() {
+  const list = $('#recipe-manual-suggestions');
+  if (!list) return;
+  list.hidden = true;
+  list.replaceChildren();
+  manualSuggestions = [];
+  activeManualSuggestion = -1;
+  $('#recipe-manual')?.setAttribute('aria-expanded', 'false');
+}
+
+function selectManualSuggestion(index) {
+  const product = manualSuggestions[index];
+  if (!product) return;
+  selectedManualProduct = product;
+  const input = $('#recipe-manual');
+  input.value = product.name;
+  input.setCustomValidity('');
+  $('#recipe-manual-status').textContent = `${product.pharmacy} · ${money(product.price)}`;
+  closeManualSuggestions();
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function renderManualSuggestions(query) {
+  const input = $('#recipe-manual');
+  const list = $('#recipe-manual-suggestions');
+  if (!input || !list) return;
+  if (!selectedManualProduct || normalize(selectedManualProduct.name) !== normalize(query)) selectedManualProduct = null;
+  const terms = normalize(query).split(' ').filter((term) => term.length > 1);
+  if (!terms.length) {
+    $('#recipe-manual-status').textContent = 'Busca por medicamento, marca o principio activo.';
+    closeManualSuggestions();
+    return;
+  }
+  const seen = new Set();
+  manualSuggestions = recipeSearchIndex
+    .filter((entry) => terms.every((term) => entry.text.includes(term)))
+    .map((entry) => entry.product)
+    .filter((product) => {
+      const key = normalize(`${product.name}|${product.brand || ''}|${product.active_ingredient || ''}`);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .sort((left, right) => Number(right.available) - Number(left.available) || Number(left.price) - Number(right.price))
+    .slice(0, 8);
+  list.replaceChildren();
+  if (!manualSuggestions.length) {
+    const empty = document.createElement('span');
+    empty.className = 'tool-suggestion-empty';
+    empty.textContent = 'Sin coincidencias. Prueba con una marca o principio activo.';
+    list.appendChild(empty);
+  } else {
+    manualSuggestions.forEach((product, index) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.role = 'option';
+      button.className = 'tool-suggestion-option';
+      const visual = document.createElement('span');
+      visual.className = 'tool-suggestion-image';
+      const source = recipeProductImage(product);
+      if (source) {
+        const image = document.createElement('img');
+        image.src = source;
+        image.alt = '';
+        image.loading = 'lazy';
+        visual.appendChild(image);
+      } else visual.textContent = 'Rx';
+      const copy = document.createElement('span');
+      copy.className = 'tool-suggestion-copy';
+      const title = document.createElement('b');
+      title.textContent = product.name;
+      const detail = document.createElement('small');
+      detail.textContent = [product.pharmacy, product.brand || product.active_ingredient].filter(Boolean).join(' · ');
+      copy.append(title, detail);
+      const price = document.createElement('strong');
+      price.textContent = money(product.price);
+      button.append(visual, copy, price);
+      button.addEventListener('pointerdown', (event) => {
+        event.preventDefault();
+        selectManualSuggestion(index);
+      });
+      list.appendChild(button);
+    });
+  }
+  $('#recipe-manual-status').textContent = manualSuggestions.length
+    ? `${manualSuggestions.length} sugerencias del catálogo. Selecciona una para agregarla.`
+    : 'No encontramos productos con esa búsqueda.';
+  list.hidden = false;
+  input.setAttribute('aria-expanded', 'true');
+}
+
+function moveManualSuggestion(direction) {
+  if (!manualSuggestions.length) return;
+  activeManualSuggestion = (activeManualSuggestion + direction + manualSuggestions.length) % manualSuggestions.length;
+  $('#recipe-manual-suggestions').querySelectorAll('button').forEach((button, index) => {
+    const active = index === activeManualSuggestion;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-selected', String(active));
+    if (active) button.scrollIntoView({ block: 'nearest' });
+  });
+}
+
 function renderReview(text = '', detected = [], notice = '', completed = false) {
   reviewedMedicines = detected.map(cleanCandidate).filter(Boolean);
   const output = $('#recipe-page-output');
@@ -250,7 +366,13 @@ function renderReview(text = '', detected = [], notice = '', completed = false) 
     <small>La lectura es una ayuda. Corrige los nombres o agrega manualmente cualquier producto que no haya sido reconocido.</small>
     <div id="recipe-medicine-list"></div>
     <div class="recipe-manual-add">
-      <input id="recipe-manual" list="recipe-products" maxlength="180" placeholder="Buscar o escribir otro medicamento">
+      <div class="recipe-manual-field">
+        <span class="tool-search-wrap">
+          <input id="recipe-manual" maxlength="180" placeholder="Buscar otro medicamento" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="recipe-manual-suggestions" aria-describedby="recipe-manual-status">
+          <span id="recipe-manual-suggestions" class="tool-suggestions" role="listbox" hidden></span>
+        </span>
+        <small id="recipe-manual-status">Busca por medicamento, marca o principio activo.</small>
+      </div>
       <button id="recipe-add-manual" type="button">+ Agregar medicamento</button>
     </div>
     ${notice ? `<div class="recipe-warning">${escapeHtml(notice)}</div>` : ''}
@@ -260,8 +382,25 @@ function renderReview(text = '', detected = [], notice = '', completed = false) 
   if (results) results.innerHTML = '';
   renderMedicineRows();
   $('#recipe-add-manual').addEventListener('click', addManualMedicine);
+  $('#recipe-manual').addEventListener('input', (event) => {
+    clearTimeout(manualSuggestionTimer);
+    manualSuggestionTimer = setTimeout(() => renderManualSuggestions(event.target.value), 160);
+  });
+  $('#recipe-manual').addEventListener('focus', (event) => renderManualSuggestions(event.target.value));
+  $('#recipe-manual').addEventListener('autocomplete:clear', () => {
+    selectedManualProduct = null;
+    closeManualSuggestions();
+  });
   $('#recipe-manual').addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') { event.preventDefault(); addManualMedicine(); }
+    if (event.key === 'ArrowDown') { event.preventDefault(); moveManualSuggestion(1); }
+    else if (event.key === 'ArrowUp') { event.preventDefault(); moveManualSuggestion(-1); }
+    else if (event.key === 'Enter' && activeManualSuggestion >= 0) {
+      event.preventDefault();
+      selectManualSuggestion(activeManualSuggestion);
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      addManualMedicine();
+    } else if (event.key === 'Escape') closeManualSuggestions();
   });
   // Evita que Safari abra el teclado y mantenga el viewport ampliado.
   if (!reviewedMedicines.length && !isMobileViewport()) $('#recipe-manual').focus();
@@ -302,9 +441,17 @@ function addManualMedicine() {
     input.reportValidity();
     return;
   }
+  if (!selectedManualProduct || normalize(selectedManualProduct.name) !== normalize(value)) {
+    input.setCustomValidity('Selecciona una sugerencia real del catálogo.');
+    $('#recipe-manual-status').textContent = 'Selecciona uno de los productos mostrados en las sugerencias.';
+    input.reportValidity();
+    return;
+  }
   input.setCustomValidity('');
   if (!reviewedMedicines.some((item) => normalize(item) === normalize(value))) reviewedMedicines.push(value);
   input.value = '';
+  selectedManualProduct = null;
+  closeManualSuggestions();
   renderMedicineRows();
   if (!isMobileViewport()) input.focus();
 }
@@ -767,6 +914,9 @@ $('#recipe-delete')?.addEventListener('click', () => {
 });
 $('#recipe-region').addEventListener('change', refreshCommunes);
 $('#recipe-commune').addEventListener('change', loadCatalog);
+document.addEventListener('pointerdown', (event) => {
+  if (!event.target.closest('.recipe-manual-field')) closeManualSuggestions();
+});
 $('.menu-btn').addEventListener('click', () => $('.nav-links').classList.toggle('open'));
 
 refreshCommunes();

@@ -1,6 +1,11 @@
 const $ = (selector) => document.querySelector(selector);
 const COMMUNES = { Tarapaca: ['Iquique'], 'Arica y Parinacota': ['Arica'], Antofagasta: ['Antofagasta'] };
 let catalog = [];
+let plannerSearchIndex = [];
+let plannerSuggestions = [];
+let plannerActiveSuggestion = -1;
+let selectedPlannerProduct = null;
+let plannerSearchTimer = 0;
 const normalize = (value = '') => value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9%]+/g, ' ').trim();
 const money = (value) => new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(value || 0);
 const escapeHtml = (value = '') => String(value).replace(/[&<>"']/g, (character) => ({
@@ -60,11 +65,20 @@ async function load() {
     const response = await fetch(`./data/${entry.file}`);
     if (!response.ok) throw new Error('catalog');
     catalog = await response.json();
-    const names = [...new Set(catalog.filter((product) => product.available !== false && product.price > 0).map((product) => product.name))].sort();
-    $('#planner-products').innerHTML = names.map((name) => `<option value="${name.replace(/"/g, '&quot;')}"></option>`).join('');
+    plannerSearchIndex = catalog
+      .filter((product) => product.price > 0)
+      .map((product) => ({
+        product,
+        search: normalize(`${product.name} ${product.brand || ''} ${product.active_ingredient || ''} ${product.pharmacy || ''}`),
+      }));
+    selectedPlannerProduct = null;
+    closePlannerSuggestions();
     $('#planner-result').innerHTML = '<span>Catálogo disponible</span><strong>—</strong><p>Selecciona una presentación y completa la frecuencia.</p>';
   } catch {
     catalog = [];
+    plannerSearchIndex = [];
+    selectedPlannerProduct = null;
+    closePlannerSuggestions();
     $('#planner-result').innerHTML = '<span>No pudimos conectarnos</span><strong>—</strong><p>Comprueba tu conexión.</p><button id="planner-retry" type="button">Reintentar</button>';
     $('#planner-retry')?.addEventListener('click', load);
   }
@@ -122,8 +136,149 @@ function showError(message) {
   $('#planner-result').innerHTML = `<span>Revisa los datos ingresados</span><strong>—</strong><p>${message}</p>`;
 }
 
+function closePlannerSuggestions() {
+  const list = $('#planner-suggestions');
+  if (!list) return;
+  list.hidden = true;
+  list.replaceChildren();
+  plannerSuggestions = [];
+  plannerActiveSuggestion = -1;
+  $('#planner-query').setAttribute('aria-expanded', 'false');
+}
+
+function applyPlannerProduct(product) {
+  selectedPlannerProduct = product;
+  $('#planner-query').value = product.name;
+  const units = packageUnits(product.name);
+  const unit = presentationUnit(product.name);
+  const labels = unitLabels(unit);
+  $('#planner-dose-label').textContent = labels[0];
+  $('#planner-pack-label').textContent = labels[1];
+  if (units && units <= 10000) {
+    $('#planner-units-pack').value = units;
+    $('#planner-help').textContent = `${units.toLocaleString('es-CL')} ${unit} detectadas desde la presentación. Puedes corregirlo si el envase indica otra cantidad.`;
+  } else {
+    $('#planner-units-pack').value = '';
+    $('#planner-help').textContent = 'No pudimos detectar el contenido. Ingrésalo manualmente según el envase.';
+  }
+  plannerMessage('');
+  closePlannerSuggestions();
+}
+
+function createPlannerSuggestion(product, index) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'tool-suggestion-option';
+  button.setAttribute('role', 'option');
+  button.setAttribute('aria-selected', 'false');
+  button.dataset.index = index;
+  const media = document.createElement('span');
+  media.className = 'tool-suggestion-image';
+  if (/^https?:\/\//i.test(String(product.image || ''))) {
+    const image = document.createElement('img');
+    image.src = product.image;
+    image.alt = '';
+    image.loading = 'lazy';
+    image.referrerPolicy = 'no-referrer';
+    image.addEventListener('error', () => media.replaceChildren(document.createTextNode('Rx')), { once: true });
+    media.append(image);
+  } else {
+    media.textContent = 'Rx';
+  }
+  const copy = document.createElement('span');
+  copy.className = 'tool-suggestion-copy';
+  const title = document.createElement('b');
+  title.textContent = product.name;
+  const detail = document.createElement('small');
+  detail.textContent = [product.brand || product.active_ingredient || 'Marca no informada', product.pharmacy]
+    .filter(Boolean).join(' · ');
+  copy.append(title, detail);
+  const price = document.createElement('strong');
+  price.textContent = product.available === false ? 'Sin stock' : money(product.price);
+  button.append(media, copy, price);
+  button.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    applyPlannerProduct(product);
+  });
+  return button;
+}
+
+function refreshPlannerSuggestions(value) {
+  const terms = normalize(value).split(' ').filter((term) => term.length > 1);
+  const list = $('#planner-suggestions');
+  list.replaceChildren();
+  if (!terms.length) {
+    closePlannerSuggestions();
+    return;
+  }
+  plannerSuggestions = plannerSearchIndex
+    .filter((entry) => terms.every((term) => entry.search.includes(term)))
+    .sort((left, right) => (
+      Number(right.product.available === true) - Number(left.product.available === true)
+      || Number(left.product.price || Infinity) - Number(right.product.price || Infinity)
+    ))
+    .map((entry) => entry.product)
+    .filter((product, index, values) => values.findIndex((candidate) => (
+      normalize(`${candidate.name}|${candidate.pharmacy}`) === normalize(`${product.name}|${product.pharmacy}`)
+    )) === index)
+    .slice(0, 12);
+  plannerActiveSuggestion = -1;
+  if (!plannerSuggestions.length) {
+    const empty = document.createElement('span');
+    empty.className = 'cart-suggestion-empty';
+    empty.textContent = 'Sin coincidencias. Prueba por nombre, marca o principio activo.';
+    list.append(empty);
+  } else {
+    plannerSuggestions.forEach((product, index) => list.append(createPlannerSuggestion(product, index)));
+  }
+  list.hidden = false;
+  $('#planner-query').setAttribute('aria-expanded', 'true');
+}
+
+function movePlannerSuggestion(direction) {
+  if (!plannerSuggestions.length) return;
+  plannerActiveSuggestion = (plannerActiveSuggestion + direction + plannerSuggestions.length) % plannerSuggestions.length;
+  $('#planner-suggestions').querySelectorAll('[role="option"]').forEach((option, index) => {
+    const active = index === plannerActiveSuggestion;
+    option.classList.toggle('active', active);
+    option.setAttribute('aria-selected', String(active));
+    if (active) option.scrollIntoView({ block: 'nearest' });
+  });
+}
+
+$('#planner-query').addEventListener('input', (event) => {
+  if (!selectedPlannerProduct || normalize(event.target.value) !== normalize(selectedPlannerProduct.name)) selectedPlannerProduct = null;
+  clearTimeout(plannerSearchTimer);
+  plannerSearchTimer = setTimeout(() => refreshPlannerSuggestions(event.target.value), 160);
+});
+
+$('#planner-query').addEventListener('keydown', (event) => {
+  if (event.key === 'ArrowDown') { event.preventDefault(); movePlannerSuggestion(1); }
+  if (event.key === 'ArrowUp') { event.preventDefault(); movePlannerSuggestion(-1); }
+  if (event.key === 'Enter' && plannerActiveSuggestion >= 0) {
+    event.preventDefault();
+    applyPlannerProduct(plannerSuggestions[plannerActiveSuggestion]);
+  }
+  if (event.key === 'Escape') closePlannerSuggestions();
+});
+
+$('#planner-query').addEventListener('autocomplete:clear', () => {
+  selectedPlannerProduct = null;
+  $('#planner-units-pack').value = '';
+  $('#planner-help').textContent = 'Selecciona una sugerencia para completar este dato. Máximo 10.000.';
+  closePlannerSuggestions();
+});
+
+document.addEventListener('pointerdown', (event) => {
+  if (!event.target.closest('.tool-search-wrap')) closePlannerSuggestions();
+});
+
 $('#planner-query').addEventListener('change', () => {
-  const product = catalog.find((item) => normalize(item.name) === normalize($('#planner-query').value));
+  const product = selectedPlannerProduct
+    && normalize(selectedPlannerProduct.name) === normalize($('#planner-query').value)
+    ? selectedPlannerProduct
+    : catalog.find((item) => normalize(item.name) === normalize($('#planner-query').value));
+  selectedPlannerProduct = product || null;
   const units = product && packageUnits(product.name);
   const unit = product ? presentationUnit(product.name) : 'unidades';
   const labels = unitLabels(unit);
@@ -152,7 +307,9 @@ $('#planner-form').addEventListener('submit', (event) => {
   const offers = catalog
     .filter((product) => product.available !== false && product.price > 0 && terms.every((term) => normalize(`${product.name} ${product.brand || ''} ${product.active_ingredient || ''}`).includes(term)))
     .sort((left, right) => left.price - right.price);
-  const offer = offers[0];
+  const offer = selectedPlannerProduct && selectedPlannerProduct.available !== false && selectedPlannerProduct.price > 0
+    ? selectedPlannerProduct
+    : null;
   const unitsDose = normalizeDecimal($('#planner-units-dose').value);
   const dosesDay = normalizeDecimal($('#planner-doses-day').value);
   const pack = normalizeDecimal($('#planner-units-pack').value);
