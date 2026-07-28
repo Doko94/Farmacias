@@ -709,6 +709,7 @@ h1 span {
 @media(max-width:600px){.location-row .external-seller-filter{margin-left:0}}
 @media(max-width:600px){
   html,body{width:100%;max-width:100%;overflow-x:hidden}
+  .hero .container.hero-grid{width:calc(100% - 40px);margin-right:auto;margin-left:auto}
   .hero{
     width:100%;
     max-width:100%;
