@@ -12,6 +12,7 @@ const LIMITS = {
   'planner-units-pack': { min: 0.1, max: 10000, label: 'Contenido por envase' },
   'planner-days': { min: 1, max: 366, label: 'Días' },
 };
+const normalizeDecimal = (value) => Number(String(value).trim().replace(',', '.'));
 
 function plannerMessage(message = '') {
   $('#planner-validation').textContent = message;
@@ -23,7 +24,7 @@ Object.entries(LIMITS).forEach(([id, limit]) => {
     if (['e', 'E', '+', '-'].includes(event.key)) event.preventDefault();
   });
   input.addEventListener('input', () => {
-    const value = Number(input.value);
+    const value = normalizeDecimal(input.value);
     input.removeAttribute('aria-invalid');
     if (input.value === '') { plannerMessage(''); return; }
     if (!Number.isFinite(value)) { input.value = ''; plannerMessage(`${limit.label}: ingresa solamente números.`); return; }
@@ -104,6 +105,19 @@ function presentationUnit(name) {
   return units.find(([token]) => text.includes(token))?.[1] || 'unidades';
 }
 
+function unitLabels(unit) {
+  const labels = {
+    comprimidos: ['Comprimidos por dosis', 'Comprimidos por envase'],
+    tabletas: ['Tabletas por dosis', 'Tabletas por envase'],
+    cápsulas: ['Cápsulas por dosis', 'Cápsulas por envase'],
+    sobres: ['Sobres por dosis', 'Sobres por envase'],
+    mL: ['Mililitros por dosis', 'Mililitros por frasco'],
+    dosis: ['Aplicaciones por dosis', 'Dosis disponibles por envase'],
+    inhalaciones: ['Puff por dosis', 'Puff disponibles por inhalador'],
+  };
+  return labels[unit] || ['Cantidad utilizada por dosis', 'Contenido por envase'];
+}
+
 function showError(message) {
   $('#planner-result').innerHTML = `<span>Revisa los datos ingresados</span><strong>—</strong><p>${message}</p>`;
 }
@@ -111,6 +125,10 @@ function showError(message) {
 $('#planner-query').addEventListener('change', () => {
   const product = catalog.find((item) => normalize(item.name) === normalize($('#planner-query').value));
   const units = product && packageUnits(product.name);
+  const unit = product ? presentationUnit(product.name) : 'unidades';
+  const labels = unitLabels(unit);
+  $('#planner-dose-label').textContent = labels[0];
+  $('#planner-pack-label').textContent = labels[1];
   if (units && units <= 10000) {
     $('#planner-units-pack').value = units;
     $('#planner-help').textContent = `${units.toLocaleString('es-CL')} unidades detectadas desde la presentación. Puedes corregirlo si el envase indica otra cantidad.`;
@@ -135,16 +153,16 @@ $('#planner-form').addEventListener('submit', (event) => {
     .filter((product) => product.available !== false && product.price > 0 && terms.every((term) => normalize(`${product.name} ${product.brand || ''} ${product.active_ingredient || ''}`).includes(term)))
     .sort((left, right) => left.price - right.price);
   const offer = offers[0];
-  const unitsDose = Number($('#planner-units-dose').value);
-  const dosesDay = Number($('#planner-doses-day').value);
-  const pack = Number($('#planner-units-pack').value);
-  const days = Number($('#planner-days').value);
+  const unitsDose = normalizeDecimal($('#planner-units-dose').value);
+  const dosesDay = normalizeDecimal($('#planner-doses-day').value);
+  const pack = normalizeDecimal($('#planner-units-pack').value);
+  const days = normalizeDecimal($('#planner-days').value);
   const valid = [unitsDose, dosesDay, pack, days].every(Number.isFinite)
     && unitsDose > 0 && unitsDose <= 100
     && dosesDay > 0 && dosesDay <= 24
     && pack > 0 && pack <= 10000
     && days >= 1 && days <= 366;
-  if (!valid) { plannerMessage('Usa valores razonables: máximo 100 unidades por dosis, 24 dosis diarias, 10.000 unidades por envase y 366 días.'); showError('Revisa las cantidades indicadas en el formulario.'); return; }
+  if (!valid) { plannerMessage('Usa números como 0,5 o 1. Límites: 0,1–100 por dosis, 0,1–24 dosis diarias, 0,1–10.000 por envase y 1–366 días.'); showError('Revisa las cantidades indicadas en el formulario.'); return; }
   if (!offer) { showError('Selecciona una presentación disponible desde las sugerencias del catálogo.'); return; }
   const required = unitsDose * dosesDay * days;
   const packages = Math.ceil(required / pack);
@@ -162,8 +180,10 @@ $('#planner-form').addEventListener('submit', (event) => {
     <span>Costo total del tratamiento</span>
     <strong>${money(total)}</strong>
     <div class="planner-cost-grid">
+      <div><small>Duración</small><b>${days} días</b></div>
+      <div><small>Envases necesarios</small><b>${packages}</b></div>
       <div><small>Costo promedio diario</small><b>${money(dailyCost)}</b></div>
-      <div><small>Equivalente para 30 días</small><b>${money(monthlyEquivalent)}</b></div>
+      <div><small>Costo mensual aproximado</small><b>${money(monthlyEquivalent)}</b></div>
     </div>
     <div class="planner-calculation">
       <b>Cálculo paso a paso</b>

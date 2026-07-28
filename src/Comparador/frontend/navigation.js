@@ -14,6 +14,13 @@
   };
 
   function initNavigation() {
+    if (!document.querySelector('.prototype-banner')) {
+      const banner = document.createElement('div');
+      banner.className = 'prototype-banner';
+      banner.setAttribute('role', 'note');
+      banner.textContent = 'Versión de prueba · Los datos y funcionalidades pueden estar incompletos.';
+      document.body.prepend(banner);
+    }
     const legacyPage = location.pathname.match(/\/([a-z0-9-]+)\.html$/i);
     if (legacyPage) {
       const cleanPath = legacyPage[1].toLowerCase() === 'index' ? '/' : `/${legacyPage[1]}`;

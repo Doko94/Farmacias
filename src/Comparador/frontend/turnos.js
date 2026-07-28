@@ -404,7 +404,7 @@ $('#refresh-pharmacies').addEventListener('click',async event=>{
     true
   );
   button.disabled=false;
-  button.textContent='↻ Actualizar datos';
+  button.textContent='↻ Volver a consultar';
 });
 document.querySelectorAll('.turno-type-filter button').forEach(button=>button.addEventListener('click',async()=>{
   typeFilter=button.dataset.type;
@@ -419,14 +419,14 @@ document.querySelectorAll('.turno-type-filter button').forEach(button=>button.ad
   );else render()
 }));
 $('#use-location').addEventListener('click',()=>{
-  if(!navigator.geolocation){$('#turno-status').hidden=false;$('#turno-status').textContent='Tu navegador no permite obtener la ubicación.';return;}
+  if(!navigator.geolocation){$('#turno-status').hidden=false;$('#turno-status').textContent='Tu navegador no permite obtener la ubicación. Usa los filtros de región y comuna.';return;}
   const button=$('#use-location'); button.disabled=true; button.textContent='Obteniendo ubicación…';
   navigator.geolocation.getCurrentPosition(position=>{
     userPosition={latitude:position.coords.latitude,longitude:position.coords.longitude};
     if(userMarker) map.removeLayer(userMarker);
     userMarker=L.marker([userPosition.latitude,userPosition.longitude],{icon:L.divIcon({className:'',html:'<span class="user-location-marker"></span>',iconSize:[18,18],iconAnchor:[9,9]})}).addTo(map).bindPopup('Tu ubicación aproximada');
-    button.disabled=false;button.textContent='⌖ Mi ubicación activa';render();
-  },()=>{button.disabled=false;button.textContent='⌖ Usar mi ubicación';$('#turno-status').hidden=false;$('#turno-status').textContent='No pudimos acceder a tu ubicación. Revisa el permiso del navegador.';},{enableHighAccuracy:true,timeout:10000,maximumAge:300000});
+    button.disabled=false;button.textContent='⌖ Mi ubicación activa';$('#turno-status').hidden=false;$('#turno-status').textContent=position.coords.accuracy>1000?'La ubicación obtenida es poco precisa. Confirma la comuna antes de trasladarte.':'Ubicación aproximada detectada. Mostrando establecimientos cercanos.';render();
+  },()=>{button.disabled=false;button.textContent='⌖ Usar mi ubicación';$('#turno-status').hidden=false;$('#turno-status').textContent='No pudimos acceder a tu ubicación. Selecciona una región y comuna manualmente.';},{enableHighAccuracy:true,timeout:10000,maximumAge:300000});
 });
 $('.menu-btn').addEventListener('click',()=>{const links=$('.nav-links');links.classList.toggle('open');$('.menu-btn').setAttribute('aria-expanded',links.classList.contains('open'));});
 loadRegion();

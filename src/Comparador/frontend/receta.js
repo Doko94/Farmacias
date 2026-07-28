@@ -8,6 +8,8 @@ const COMMUNES = {
 
 let catalog = [];
 let reviewedMedicines = [];
+let activeOcrWorker = null;
+let ocrCancelled = false;
 
 const normalize = (value = '') => value
   .toLowerCase()
@@ -502,6 +504,8 @@ async function processRecipe(file) {
     $('#recipe-consent')?.focus();
     return;
   }
+  const deleteButton = $('#recipe-delete');
+  if (deleteButton) deleteButton.hidden = false;
   if (file.size === 0) {
     renderReview('', [], 'El archivo está vacío.');
     return;
@@ -533,7 +537,7 @@ async function processRecipe(file) {
     renderReview('', [], 'La lectura local de PDF no está disponible. Escribe los medicamentos manualmente o convierte la página en una imagen.');
     return;
   }
-  output.innerHTML = '<div class="ocr-progress"><b>Procesando receta…</b><span>Preparando lectura</span><i style="--progress:5%"></i></div>';
+  output.innerHTML = '<div class="ocr-progress"><b>Procesando receta…</b><span>Preparando archivo…</span><i style="--progress:5%"></i><button id="recipe-cancel-ocr" type="button">Cancelar análisis</button></div>';
   setRecipeActionState('processing');
   if (!window.Tesseract) {
     renderReview('', [], 'No se pudo cargar el lector automático. Aún puedes ingresar los medicamentos manualmente.');
@@ -541,21 +545,35 @@ async function processRecipe(file) {
   }
   let image;
   try {
+    ocrCancelled = false;
+    $('#recipe-cancel-ocr')?.addEventListener('click', async () => {
+      ocrCancelled = true;
+      await activeOcrWorker?.terminate();
+      activeOcrWorker = null;
+      renderReview('', [], 'Análisis cancelado. Puedes seleccionar otra imagen o agregar los medicamentos manualmente.');
+    }, { once: true });
     image = await prepareImage(file);
-    const result = await Tesseract.recognize(image, 'spa', {
-      tessedit_pageseg_mode: '6',
-      preserve_interword_spaces: '1',
+    activeOcrWorker = await Tesseract.createWorker('spa', 1, {
       logger: (message) => {
-        if (message.status !== 'recognizing text') return;
         const label = output.querySelector('span');
         const progress = output.querySelector('i');
-        const percentage = Math.round(message.progress * 100);
-        if (label) label.textContent = percentage >= 100
-          ? 'Lectura al 100%. Espera mientras organizamos los medicamentos…'
-          : `Reconociendo texto… ${percentage}%`;
-        if (progress) progress.style.setProperty('--progress', `${message.progress * 100}%`);
+        const percentage = Math.round((message.progress || 0) * 100);
+        if (label) {
+          if (message.status === 'recognizing text') label.textContent = percentage >= 100
+            ? 'Lectura al 100%. Buscando medicamentos en el catálogo…'
+            : `Reconociendo texto… ${percentage}%`;
+          else label.textContent = 'Preparando el lector local…';
+        }
+        if (progress && message.progress) progress.style.setProperty('--progress', `${message.progress * 100}%`);
       },
     });
+    await activeOcrWorker.setParameters({
+      tessedit_pageseg_mode: '6',
+      preserve_interword_spaces: '1',
+    });
+    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('El análisis superó el tiempo máximo de 90 segundos.')), 90000));
+    const result = await Promise.race([activeOcrWorker.recognize(image), timeout]);
+    if (ocrCancelled) return;
     const text = result.data?.text || '';
     const detected = detectedCandidates(text);
     renderReview(
@@ -565,8 +583,11 @@ async function processRecipe(file) {
       true
     );
   } catch (error) {
+    if (ocrCancelled) return;
     renderReview('', [], `No pudimos leer la imagen automáticamente. Puedes continuar manualmente. ${error.message || ''}`);
   } finally {
+    await activeOcrWorker?.terminate().catch(() => {});
+    activeOcrWorker = null;
     // Safari conserva por más tiempo los buffers gráficos; liberarlos evita
     // presión de memoria después de procesar una fotografía grande.
     if (image instanceof HTMLCanvasElement) {
@@ -717,6 +738,8 @@ if (privacyNotice) {
     <div class="recipe-privacy-actions"><a href="/privacidad">Política de privacidad</a><a href="/terminos">Términos de uso</a><button id="recipe-delete" type="button">Eliminar mi receta</button></div>`;
 }
 const activeRecipeConsent = $('#recipe-consent');
+const activeRecipeDelete = $('#recipe-delete');
+if (activeRecipeDelete) activeRecipeDelete.hidden = true;
 function updateUploadPermission() {
   const authorized=Boolean(activeRecipeConsent?.checked);
   if(recipeFile)recipeFile.disabled=!authorized;
@@ -739,7 +762,8 @@ $('#recipe-delete')?.addEventListener('click', () => {
   updateUploadPermission();
   reviewedMedicines = [];
   $('#recipe-results').innerHTML = '';
-  renderReview('', [], 'La receta y el texto detectado se eliminaron de esta sesión.');
+  activeRecipeDelete.hidden = true;
+  renderReview('', [], 'Receta eliminada de esta sesión. El archivo, el texto detectado y los resultados fueron borrados.');
 });
 $('#recipe-region').addEventListener('change', refreshCommunes);
 $('#recipe-commune').addEventListener('change', loadCatalog);

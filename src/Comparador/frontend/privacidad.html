@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex, nofollow">
   <meta name="description" content="Política de privacidad de AhorraMed.">
   <title>Privacidad · AhorraMed</title>
   <link rel="icon" type="image/png" href="assets/favicon-white.png">
@@ -16,16 +16,18 @@
   <main>
     <section class="tool-hero"><div class="container"><span class="eyebrow">PRIVACIDAD</span><h1>Privacidad y recetas</h1><p>Información clara sobre el tratamiento de archivos y datos personales.</p></div></section>
     <section class="container legal-page">
+      <p><b>Versión 0.2</b><br>Última actualización: 28 de julio de 2026.<br>Aplicable a la versión de pruebas publicada en Netlify.</p>
       <h2>Procesamiento en la página pública</h2>
       <p>Las fotografías se procesan localmente en tu navegador mediante OCR. El archivo y el texto detectado no se envían al servidor de AhorraMed ni se guardan en una base de datos. Al cerrar, recargar o usar “Eliminar mi receta” se eliminan de la memoria del navegador. La biblioteca de OCR se descarga desde jsDelivr, pero la receta no se entrega a ese proveedor.</p>
       <h2>Archivos PDF</h2>
       <p>La versión pública no envía el PDF a AhorraMed ni a un servicio externo. Si la lectura local no está disponible, deberás escribir los medicamentos manualmente. Una instalación que conecte un backend propio debe informar ese tratamiento de datos por separado.</p>
+      <p><b>Funcionalidad no activa en esta versión pública:</b> AhorraMed no dispone actualmente de un endpoint productivo para recibir recetas. Cualquier integración futura deberá publicar sus propias condiciones y obtener un consentimiento específico.</p>
       <h2>Datos sensibles</h2>
       <p>Una receta puede contener nombre, RUT, dirección, diagnóstico y datos del profesional. Recomendamos ocultar esos campos antes de subirla cuando no sean necesarios. AhorraMed intenta excluirlos del listado de medicamentos, pero el texto OCR puede contener errores.</p>
       <h2>Eliminación</h2>
       <p>En la página de receta puedes usar “Eliminar mi receta” para borrar inmediatamente el archivo seleccionado, el texto detectado y los resultados de la sesión. Como la página pública no persiste el archivo, no existe una copia posterior que solicitar.</p>
       <h2>Contacto</h2>
-      <p>Para consultas de privacidad o una instalación administrada, utiliza el canal de contacto informado por el responsable de la plataforma.</p>
+      <p>Canal de contacto en preparación. Esta versión corresponde a una prueba técnica y no admite cuentas de usuario ni solicitudes asociadas a archivos persistidos, porque las recetas no se almacenan.</p>
     </section>
   </main>
   <footer><div class="container footer-grid"><div><b>AhorraMed</b><p>Comparador informativo.</p></div></div><div class="container legal-links"><a href="/privacidad" aria-current="page">Privacidad</a><a href="/terminos">Términos de uso</a></div></footer>

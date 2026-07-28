@@ -24,6 +24,7 @@ let catalog = [];
 let cart = [];
 let suggestions = [];
 let activeSuggestion = -1;
+let selectedCartProduct = null;
 
 const bioTitle=document.querySelector('.bio-switch b');
 const bioDescription=document.querySelector('.bio-switch small');
@@ -58,11 +59,13 @@ function selectSuggestion(index) {
   const product = suggestions[index];
   if (!product) return;
   $('#cart-query').value = product.name;
+  selectedCartProduct = product;
   closeSuggestions();
   $('#cart-quantity').focus();
 }
 
 function refreshSuggestions(query) {
+  if (!selectedCartProduct || normalize(selectedCartProduct.name) !== normalize(query)) selectedCartProduct = null;
   const terms = normalize(query).split(' ').filter((term) => term.length > 1);
   const list = $('#cart-suggestions');
   if (!terms.length) { closeSuggestions(); return; }
@@ -77,7 +80,7 @@ function refreshSuggestions(query) {
   ])).values()].slice(0, 10);
   activeSuggestion = -1;
   if (!suggestions.length) {
-    list.innerHTML = '<span class="cart-suggestion-empty">Sin coincidencias. Puedes agregar igualmente esta búsqueda.</span>';
+    list.innerHTML = '<span class="cart-suggestion-empty">Sin coincidencias. Revisa la ortografía o busca por marca o principio activo.</span>';
   } else {
     list.innerHTML = suggestions.map((product, index) => `
       <button type="button" role="option" data-index="${index}" aria-selected="false">
@@ -318,22 +321,52 @@ function renderResults(data) {
 $('#cart-form').addEventListener('submit', (event) => {
   event.preventDefault();
   const query = $('#cart-query').value.replace(/\s+/g, ' ').trim();
-  const quantity = Number($('#cart-quantity').value);
+  const rawQuantity = $('#cart-quantity').value.trim();
+  const quantity = Number(rawQuantity);
+  const formStatus = $('#cart-form-status');
+  formStatus.textContent = '';
   if (query.length < 2 || query.length > 120) {
     showStatus('Ingresa un producto válido de 2 a 120 caracteres.');
     return;
   }
-  if (!Number.isInteger(quantity) || quantity < 1 || quantity > 50) {
-    showStatus('La cantidad debe ser un número entero entre 1 y 50.');
+  if (!rawQuantity || quantity === 0) {
+    formStatus.textContent = 'Ingresa al menos una unidad.';
     $('#cart-quantity').focus();
     return;
   }
+  if (!Number.isFinite(quantity) || !Number.isInteger(quantity)) {
+    formStatus.textContent = 'La cantidad debe ser un número entero.';
+    $('#cart-quantity').focus();
+    return;
+  }
+  if (quantity < 0) {
+    formStatus.textContent = 'Ingresa al menos una unidad.';
+    $('#cart-quantity').focus();
+    return;
+  }
+  if (quantity > 99) {
+    formStatus.textContent = 'La cantidad máxima por producto es 99.';
+    $('#cart-quantity').focus();
+    return;
+  }
+  if (!selectedCartProduct || normalize(selectedCartProduct.name) !== normalize(query)) {
+    formStatus.textContent = 'Selecciona una sugerencia real del catálogo antes de agregar.';
+    $('#cart-query').focus();
+    return;
+  }
   const existing = cart.find((item) => normalize(item.query) === normalize(query));
-  if (existing) existing.quantity = Math.min(50, existing.quantity + quantity);
-  else cart.push({ query, quantity });
+  if (existing) {
+    const previous = existing.quantity;
+    existing.quantity = Math.min(99, existing.quantity + quantity);
+    formStatus.textContent = `Este producto ya estaba en tu carrito. Actualizamos la cantidad de ${previous} a ${existing.quantity}.`;
+  } else {
+    cart.push({ query, quantity });
+    formStatus.textContent = `${query} fue agregado al carrito.`;
+  }
   $('#cart-status').hidden = true;
   $('#cart-query').value = '';
   $('#cart-quantity').value = 1;
+  selectedCartProduct = null;
   closeSuggestions();
   renderCart();
   $('#cart-query').focus();
