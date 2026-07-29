@@ -439,9 +439,15 @@ async function refreshSearchSuggestions(rawQuery) {
     $('#search-input').setAttribute('aria-expanded','true');
     return;
   }
-  box.innerHTML = searchSuggestionItems.map((product, index) => `
+  box.innerHTML = searchSuggestionItems.map((product, index) => {
+    const imageUrl = safeUrl(product.image || product.image_url || product.imagen || '');
+    const imageMarkup = imageUrl
+      ? `<img src="${escapeHtml(imageUrl)}" alt="" loading="lazy" decoding="async">`
+      : '<span aria-hidden="true">+</span>';
+    return `
     <button id="search-suggestion-${index}" class="search-suggestion-option" type="button" role="option" aria-selected="false" data-index="${index}">
-      <span><b>${escapeHtml(product.name)}</b><small>${escapeHtml([
+      <span class="search-suggestion-image">${imageMarkup}</span>
+      <span class="search-suggestion-copy"><b>${escapeHtml(product.name)}</b><small>${escapeHtml([
         product.brand || product.active_ingredient,
         product.pharmacy,
       ].filter(Boolean).join(' · '))}</small></span>
@@ -451,7 +457,8 @@ async function refreshSearchSuggestions(rawQuery) {
           product.available === true ? 'Con stock' : product.available === false ? 'Sin stock' : 'Stock por confirmar'
         }</small>
       </span>
-    </button>`).join('');
+    </button>`;
+  }).join('');
   box.hidden = false;
   activeSearchSuggestion = -1;
   $('#search-input').setAttribute('aria-expanded', 'true');
