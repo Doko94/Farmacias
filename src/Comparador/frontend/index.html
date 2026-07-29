@@ -145,7 +145,7 @@
     <section id="alertas" class="section dark-section"><div class="container split-grid">
       <div><span class="kicker light">ALERTAS Y MI BOTIQUÍN</span><h2>Sigue su precio o planifica su reposición.</h2><p>Selecciona un producto real del catálogo. Puedes registrar una alerta de precio o estimar cuándo necesitarás reponerlo. AhorraMed no conoce el vencimiento del lote: esa fecha se ingresa manualmente desde el envase.</p></div>
       <form id="alert-form" class="alert-form" novalidate>
-        <fieldset class="alert-mode-selector"><legend>¿Qué deseas registrar?</legend><label><input type="radio" name="alert-mode" value="price" checked> Baja de precio</label><label><input type="radio" name="alert-mode" value="replenishment"> Reposición o vencimiento</label></fieldset>
+        <fieldset class="alert-mode-selector"><legend>¿Qué deseas registrar? Puedes seleccionar ambas opciones.</legend><label><input type="checkbox" name="alert-mode" value="price" checked> <span>Baja de precio</span></label><label><input type="checkbox" name="alert-mode" value="replenishment"> <span>Reposición o vencimiento</span></label></fieldset>
         <label class="alert-product-field"><span>Medicamento o producto</span>
           <div class="alert-autocomplete">
             <input id="alert-query" required minlength="2" maxlength="120" autocomplete="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-controls="alert-suggestions" aria-expanded="false" aria-describedby="alert-message" placeholder="Busca por nombre, marca o principio activo">

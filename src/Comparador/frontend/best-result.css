@@ -755,7 +755,9 @@ h1 span {
 .open-pharmacies-cta .button{flex:0 0 auto;text-align:center}
 .alert-mode-selector{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:.65rem 1.2rem;margin:0;padding:.85rem 1rem;border:1px solid #8fd2ca;border-radius:14px}
 .alert-mode-selector legend{padding:0 .35rem;color:#064764;font-weight:800}
-.alert-mode-selector label{display:flex;align-items:center;gap:.45rem;font-weight:700}
+.alert-mode-selector label{display:flex;flex:1 1 180px;align-items:center;gap:.65rem;min-height:48px;padding:.65rem .8rem;border:1px solid #c5e3de;border-radius:12px;background:#f7fbfa;color:#064764;font-weight:700;cursor:pointer}
+.alert-mode-selector label:has(input:checked){border-color:#13a797;background:#e7f7f3;box-shadow:0 0 0 2px rgba(19,167,151,.1)}
+.alert-mode-selector input{flex:0 0 auto;width:20px!important;height:20px;margin:0!important;accent-color:#13a797}
 .botiquin-fields{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.8rem;padding:1rem;border-radius:14px;background:#edf8f5}
 .botiquin-fields[hidden]{display:none}
 .botiquin-fields small{grid-column:1/-1}
@@ -764,6 +766,10 @@ h1 span {
 .observatory-insights b{color:#064764}
 .observatory-insights p{margin:.4rem 0 0;color:#456b77;font-size:.85rem;line-height:1.5}
 @media(max-width:700px){
+  .alert-mode-selector{display:grid;grid-template-columns:1fr;gap:.65rem;padding:.9rem}
+  .alert-mode-selector legend{max-width:100%;line-height:1.4}
+  .alert-mode-selector label{width:100%;min-height:54px;padding:.75rem .85rem}
+  .alert-mode-selector label span{display:block;line-height:1.35}
   .open-pharmacies-cta{align-items:stretch;flex-direction:column}
   .open-pharmacies-cta .button{width:100%}
   .botiquin-fields,.observatory-insights{grid-template-columns:1fr}

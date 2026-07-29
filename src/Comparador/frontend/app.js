@@ -788,13 +788,17 @@ const setAlertError=(input,message)=>{
   if(input){input.setAttribute('aria-invalid','true');input.focus();}
 };
 
-const alertMode=()=>document.querySelector('input[name="alert-mode"]:checked')?.value||'price';
+const alertModes=()=>[...document.querySelectorAll('input[name="alert-mode"]:checked')].map(input=>input.value);
 const syncAlertMode=()=>{
-  const replenishment=alertMode()==='replenishment';
+  const modes=alertModes();
+  const replenishment=modes.includes('replenishment');
+  const price=modes.includes('price');
   $('#botiquin-fields').hidden=!replenishment;
   $('#botiquin-quantity').required=replenishment;
   $('#botiquin-daily-use').required=replenishment;
-  $('#alert-submit').textContent=replenishment?'Guardar en mi botiquín':'Avisarme si baja de precio';
+  $('#alert-submit').textContent=price&&replenishment
+    ?'Crear alerta y guardar en mi botiquín'
+    :replenishment?'Guardar en mi botiquín':'Avisarme si baja de precio';
   $('#alert-message').textContent='';
 };
 
@@ -803,6 +807,8 @@ syncAlertMode();
 
 $('#alert-form').addEventListener('submit',async(event)=>{
   event.preventDefault();
+  const modes=alertModes();
+  if(!modes.length){setAlertError(null,'Selecciona al menos una opción: baja de precio, reposición o ambas.');return;}
   const email=$('#alert-email').value.normalize('NFC').trim().toLowerCase();
   const query=$('#alert-query').value.normalize('NFC').replace(/\s+/g,' ').trim();
   if(query.length<2||query.length>120){setAlertError($('#alert-query'),'Selecciona un producto de entre 2 y 120 caracteres.');return;}
@@ -813,7 +819,8 @@ $('#alert-form').addEventListener('submit',async(event)=>{
   $('#alert-query').value=query; $('#alert-email').value=email;
   ['#alert-query','#alert-email'].forEach(selector=>$(selector).removeAttribute('aria-invalid'));
   const {region,commune}=locationValue();
-  if(alertMode()==='replenishment'){
+  const messages=[];
+  if(modes.includes('replenishment')){
     const quantity=Number($('#botiquin-quantity').value);
     const dailyUse=Number($('#botiquin-daily-use').value);
     const expiry=$('#botiquin-expiry').value;
@@ -829,18 +836,23 @@ $('#alert-form').addEventListener('submit',async(event)=>{
     const stored=JSON.parse(localStorage.getItem('ahorramed_botiquin')||'[]');
     stored.push(record);
     localStorage.setItem('ahorramed_botiquin',JSON.stringify(stored.slice(-50)));
-    $('#alert-message').textContent=`Producto guardado en este dispositivo. Reposición estimada: ${new Intl.DateTimeFormat('es-CL',{dateStyle:'long'}).format(replenishmentDate)}. El correo requiere habilitar el servicio de notificaciones.`;
-    return;
+    messages.push(`Producto guardado en este dispositivo. Reposición estimada: ${new Intl.DateTimeFormat('es-CL',{dateStyle:'long'}).format(replenishmentDate)}.`);
+    if(!modes.includes('price')){
+      $('#alert-message').textContent=`${messages.join(' ')} El correo requiere habilitar el servicio de notificaciones.`;
+      return;
+    }
   }
   const body={email,query,target_price:null,region,commune};
   try {
     const response = await api('/api/alerts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    $('#alert-message').textContent=response.delivery_configured
+    messages.push(response.delivery_configured
       ? 'Revisa tu correo para confirmar la alerta. Podrás cancelarla desde cada aviso.'
-      : 'Solicitud registrada, pero el envío de correo aún no está habilitado. No recibirás avisos hasta conectar el proveedor de email.';
+      : 'Solicitud registrada, pero el envío de correo aún no está habilitado. No recibirás avisos hasta conectar el proveedor de email.');
+    $('#alert-message').textContent=messages.join(' ');
   }
   catch {
-    $('#alert-message').textContent='Seguimiento guardado solo en este dispositivo. No se enviarán correos hasta conectar el servicio de alertas.';
+    messages.push('La alerta de precio quedó guardada solo en este dispositivo. No se enviarán correos hasta conectar el servicio de alertas.');
+    $('#alert-message').textContent=messages.join(' ');
     localStorage.setItem('farma_demo_alert',JSON.stringify(body));
   }
 });
