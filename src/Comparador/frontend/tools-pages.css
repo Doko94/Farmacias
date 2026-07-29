@@ -339,6 +339,123 @@
 .inline-form-status{color:#8a4b00;font-size:.86rem;font-weight:700;min-height:1.3rem;padding:.25rem .25rem 0}
 .history-records-card{background:#fff;border:2px solid #78cfc4;border-radius:20px;grid-column:1/-1;padding:1.25rem}
 .history-records-card h3{color:#064764;margin:0 0 1rem}
+
+/* Historial: lectura compacta, jerarquía clara y mejor contraste. */
+.history-layout{
+  grid-template-columns:minmax(0,1.7fr) minmax(290px,.7fr);
+  gap:22px;
+  align-items:stretch;
+}
+.history-layout .chart-card,
+.history-layout .summary-card{
+  border:2px solid #78cfc4;
+  background:linear-gradient(145deg,#fff 0%,#fbfefd 100%);
+  box-shadow:0 18px 44px rgba(6,71,100,.09);
+}
+.history-layout .chart-card{padding:26px}
+.history-layout .chart-head{
+  align-items:end;
+  margin-bottom:16px;
+  padding-bottom:18px;
+  border-bottom:1px solid #c7e5df;
+}
+.history-layout .chart-head small{
+  color:#13a797;
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+}
+.history-layout .chart-head h2{
+  margin-top:5px;
+  color:#064764;
+  font-size:22px;
+}
+.history-layout .chart-head p{
+  max-width:500px;
+  margin:6px 0 0;
+  color:#557580;
+  font-size:12px;
+  line-height:1.5;
+}
+.history-offer-field{
+  display:grid;
+  flex:0 1 380px;
+  gap:6px;
+  color:#466b77;
+  font-size:10px;
+  font-weight:800;
+}
+.history-layout .chart-head .history-offer-field select{
+  width:100%;
+  max-width:none;
+  min-height:44px;
+  border:1.5px solid #72c9bc;
+  background:#fff;
+  color:#064764;
+  font-weight:700;
+}
+.history-single-note{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin:0 0 12px;
+  padding:10px 13px;
+  border:1px solid #b8dfd8;
+  border-radius:11px;
+  background:#eff8f6;
+  color:#557580;
+  font-size:11px;
+}
+.history-single-note[hidden]{display:none}
+.history-single-note b{color:#087f72}
+.history-layout .price-chart{height:300px;border:1px solid #d4eae6}
+.history-layout .price-chart.is-single-point{height:190px}
+.history-layout .summary-card{
+  justify-content:flex-start;
+  gap:10px;
+  padding:26px;
+}
+.history-layout .summary-card>span{
+  color:#557580;
+  font-size:12px;
+  font-weight:700;
+}
+.history-layout .summary-card>strong{
+  color:#064764;
+  font-size:40px;
+  line-height:1.05;
+}
+.summary-current-label{
+  margin-top:-4px;
+  color:#66838c;
+  font-size:10px;
+}
+.history-layout .summary-grid{margin:8px 0}
+.history-layout .summary-grid div{
+  min-height:76px;
+  border:1px solid #d4eae6;
+  background:#eff8f6;
+}
+.history-layout .summary-grid b{color:#064764;font-size:15px}
+.history-layout .summary-card p{
+  padding-top:12px;
+  border-top:1px solid #c7e5df;
+  font-size:12px;
+}
+@media(max-width:800px){
+  .history-layout{grid-template-columns:minmax(0,1fr)}
+  .history-layout .chart-head{align-items:stretch}
+  .history-offer-field{width:100%;flex-basis:auto}
+  .history-layout .price-chart{height:240px}
+  .history-layout .price-chart.is-single-point{height:170px}
+}
+@media(max-width:600px){
+  .history-layout .chart-card,.history-layout .summary-card{padding:18px}
+  .history-layout .chart-head h2{font-size:19px}
+  .history-single-note{align-items:flex-start;flex-direction:column}
+  .history-layout .summary-card>strong{font-size:34px}
+}
 .ocr-progress button{align-self:flex-start;background:#fff;border:1px solid #d98a19;border-radius:9px;color:#8a4b00;font-weight:800;margin-top:.6rem;padding:.55rem .8rem}
 
 /* Dashboard: los gráficos de lectura comparativa ocupan toda la retícula. */

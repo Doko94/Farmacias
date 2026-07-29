@@ -168,7 +168,8 @@ async function getPoints(offer) {
 function draw(points) {
   const svg = $('#price-chart');
   const width = 760;
-  const height = 320;
+  const single = points.length === 1;
+  const height = single ? 190 : 300;
   const pad = { x: 58, y: 42 };
   const prices = points.map((point) => Number(point.price));
   let min = Math.min(...prices);
@@ -189,6 +190,7 @@ function draw(points) {
     ? `<text x="${width / 2}" y="${height - 10}" text-anchor="middle" fill="#466b77" font-size="11">${firstDate}</text>`
     : `<text x="${pad.x}" y="${height - 10}" fill="#466b77" font-size="11">${firstDate}</text><text x="${width - pad.x}" y="${height - 10}" text-anchor="end" fill="#466b77" font-size="11">${lastDate}</text>`;
   svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  svg.classList.toggle('is-single-point', single);
   svg.innerHTML = `<defs><linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#13A797" stop-opacity=".28"/><stop offset="1" stop-color="#13A797" stop-opacity=".02"/></linearGradient></defs>${grid}${area ? `<polygon class="chart-area" points="${area}"/>` : ''}${points.length > 1 ? `<polyline class="chart-line" points="${coords}"/>` : ''}${dots}${dates}`;
 }
 
@@ -222,7 +224,7 @@ async function renderOffer(index) {
   const previous = prices.length > 1 ? prices.at(-2) : null;
   const last = prices.at(-1);
   const change = previous ? Math.round((last - previous) * 1000 / previous) / 10 : 0;
-  $('#history-title').textContent = `${offer.name} · ${offer.pharmacy}`;
+  $('#history-single-note').hidden = points.length > 1;
   $('#history-current').textContent = money(last);
   $('#history-min').textContent = money(Math.min(...prices));
   $('#history-max').textContent = money(Math.max(...prices));
