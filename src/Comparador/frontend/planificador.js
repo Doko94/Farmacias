@@ -52,7 +52,7 @@ Object.entries(LIMITS).forEach(([id, limit]) => {
 async function load() {
   $('#planner-result').innerHTML = '<span>Consultando catálogo…</span><strong>—</strong><p>Preparando las presentaciones disponibles.</p>';
   try {
-    const manifest = await fetch('./data/manifest.json').then((response) => {
+    const manifest = await fetch('./data/manifest.json',{cache:'no-store'}).then((response) => {
       if (!response.ok) throw new Error('manifest');
       return response.json();
     });

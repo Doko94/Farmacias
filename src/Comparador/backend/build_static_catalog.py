@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import re
 import shutil
 import sys
 import unicodedata
+from datetime import datetime, timezone
 from pathlib import Path
 
 BACKEND_DIR = Path(__file__).resolve().parent
@@ -39,6 +41,12 @@ def build() -> dict[str, int]:
     ASSET_DIR.mkdir(parents=True, exist_ok=True)
     for filename in ("Logo_imagen.png", "Logo_imagen_texto.png"):
         shutil.copy2(LOGO_DIR / filename, ASSET_DIR / filename)
+    # Cada ejecución debe producir un directorio coherente. Si cambia el nombre
+    # versionado de un catálogo, no dejamos archivos de despliegues anteriores.
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    for old_catalog in OUTPUT_DIR.glob("*.json"):
+        old_catalog.unlink()
+
     catalog = Catalog()
     grouped: dict[tuple[str, str], dict[tuple[str, str], dict]] = {}
     for offer in catalog.offers:
@@ -62,22 +70,26 @@ def build() -> dict[str, int]:
             "image": offer.image,
             "bioequivalent": offer.bioequivalent,
             "fonasa_price": offer.fonasa_price,
-            "search_text": offer.normalized_name,
         }
 
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    manifest = {"locations": {}, "total_offers": 0}
+    manifest = {
+        "schema_version": 2,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "locations": {},
+        "total_offers": 0,
+    }
     counts: dict[str, int] = {}
     for (region, commune), offers_by_key in grouped.items():
-        filename = f"{slug(region)}--{slug(commune)}.json"
         offers = sorted(
             offers_by_key.values(),
             key=lambda item: (item["name"].casefold(), item["price"]),
         )
-        (OUTPUT_DIR / filename).write_text(
-            json.dumps(offers, ensure_ascii=False, separators=(",", ":")),
-            encoding="utf-8",
-        )
+        payload = json.dumps(
+            offers, ensure_ascii=False, separators=(",", ":")
+        ).encode("utf-8")
+        content_hash = hashlib.sha256(payload).hexdigest()[:12]
+        filename = f"{slug(region)}--{slug(commune)}--{content_hash}.json"
+        (OUTPUT_DIR / filename).write_bytes(payload)
         location_key = f"{region}|{commune}"
         manifest["locations"][location_key] = {
             "file": filename,
@@ -87,6 +99,7 @@ def build() -> dict[str, int]:
                 (item["captured_at"] for item in offers if item["captured_at"]),
                 default="",
             ),
+            "sha256": hashlib.sha256(payload).hexdigest(),
         }
         manifest["total_offers"] += len(offers)
         counts[location_key] = len(offers)

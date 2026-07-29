@@ -123,7 +123,7 @@ function moveSuggestion(direction) {
 }
 
 async function loadCatalog() {
-  const manifest = await fetch('./data/manifest.json').then((response) => response.json());
+  const manifest = await fetch('./data/manifest.json',{cache:'no-store'}).then((response) => response.json());
   const entry = manifest.locations[`${$('#bio-region').value}|${$('#bio-commune').value}`];
   if (!entry) throw new Error('No hay catálogo');
   catalog = await fetch(`./data/${entry.file}`).then((response) => response.json());

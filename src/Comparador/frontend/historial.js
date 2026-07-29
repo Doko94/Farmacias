@@ -124,7 +124,7 @@ function moveSuggestion(direction) {
 }
 
 async function loadCatalog() {
-  const manifest = await fetch('./data/manifest.json').then((response) => response.json());
+  const manifest = await fetch('./data/manifest.json',{cache:'no-store'}).then((response) => response.json());
   const region = $('#history-region').value;
   const commune = $('#history-commune').value;
   const entry = manifest.locations[`${region}|${commune}`];

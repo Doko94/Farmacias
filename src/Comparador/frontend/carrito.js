@@ -32,7 +32,7 @@ if(bioTitle)bioTitle.textContent='Incluir alternativas informadas como bioequiva
 if(bioDescription)bioDescription.textContent='Se identificarán como alternativas de otra marca. Confirma concentración, forma, cantidad y condición vigente antes de elegirlas.';
 
 async function loadCatalog() {
-  const manifest = await fetch('./data/manifest.json').then((response) => response.json());
+  const manifest = await fetch('./data/manifest.json',{cache:'no-store'}).then((response) => response.json());
   const entry = manifest.locations[`${$('#cart-region').value}|${$('#cart-commune').value}`];
   if (!entry) throw new Error('Sin catálogo');
   catalog = await fetch(`./data/${entry.file}`).then((response) => response.json());

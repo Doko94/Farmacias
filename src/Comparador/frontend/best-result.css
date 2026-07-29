@@ -740,6 +740,28 @@ h1 span {
   .autocomplete-clear-button{right:7px;width:38px;height:38px;font-size:25px!important}
   .autocomplete-clear-root>input{padding-right:50px!important}
 }
+.open-pharmacies-cta{display:flex;align-items:center;justify-content:space-between;gap:1.2rem;margin-top:1.4rem;padding:1.15rem 1.3rem;border:2px solid #13a797;border-radius:20px;background:linear-gradient(135deg,#eefaf7,#fff);box-shadow:0 14px 34px rgba(6,71,100,.08)}
+.open-pharmacies-cta[hidden]{display:none}
+.open-pharmacies-cta>div{display:flex;align-items:flex-start;gap:.9rem}
+.open-pharmacies-cta>div>span{display:grid;place-items:center;flex:0 0 44px;width:44px;height:44px;border-radius:13px;color:#fff;background:linear-gradient(135deg,#13a797,#47b755);font-size:1.35rem}
+.open-pharmacies-cta b{display:block;color:#064764;font-size:1rem}
+.open-pharmacies-cta p{max-width:760px;margin:.25rem 0 0;color:#456b77;font-size:.86rem;line-height:1.55}
+.open-pharmacies-cta .button{flex:0 0 auto;text-align:center}
+.alert-mode-selector{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:.65rem 1.2rem;margin:0;padding:.85rem 1rem;border:1px solid #8fd2ca;border-radius:14px}
+.alert-mode-selector legend{padding:0 .35rem;color:#064764;font-weight:800}
+.alert-mode-selector label{display:flex;align-items:center;gap:.45rem;font-weight:700}
+.botiquin-fields{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.8rem;padding:1rem;border-radius:14px;background:#edf8f5}
+.botiquin-fields[hidden]{display:none}
+.botiquin-fields small{grid-column:1/-1}
+.observatory-insights{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem;margin:0 0 1.2rem}
+.observatory-insights article{padding:1rem 1.1rem;border:2px solid #78cfc4;border-radius:16px;background:#f5fbf9}
+.observatory-insights b{color:#064764}
+.observatory-insights p{margin:.4rem 0 0;color:#456b77;font-size:.85rem;line-height:1.5}
+@media(max-width:700px){
+  .open-pharmacies-cta{align-items:stretch;flex-direction:column}
+  .open-pharmacies-cta .button{width:100%}
+  .botiquin-fields,.observatory-insights{grid-template-columns:1fr}
+}
 @media(max-width:600px){
   html,body{width:100%;max-width:100%;overflow-x:hidden}
   .hero .container.hero-grid{width:calc(100% - 40px);margin-right:auto;margin-left:auto}

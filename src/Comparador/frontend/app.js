@@ -81,7 +81,7 @@ const strictProductMatch = (query, product) => {
 const staticCatalogCache = new Map();
 let staticManifestPromise;
 function loadStaticManifest() {
-  staticManifestPromise ||= fetch('./data/manifest.json').then(response=>{
+  staticManifestPromise ||= fetch('./data/manifest.json',{cache:'no-store'}).then(response=>{
     if(!response.ok) throw new Error('Catalogo estatico no disponible');
     return response.json();
   });
@@ -93,7 +93,7 @@ async function loadStaticCatalog() {
   const entry=manifest.locations[`${region}|${commune}`];
   if(!entry) return [];
   if(!staticCatalogCache.has(entry.file)) {
-    staticCatalogCache.set(entry.file,fetch(`./data/${entry.file}`).then(response=>{
+    staticCatalogCache.set(entry.file,fetch(`./data/${entry.file}`,{cache:'force-cache'}).then(response=>{
       if(!response.ok) throw new Error('Datos de ubicacion no disponibles');
       return response.json();
     }));
@@ -214,7 +214,20 @@ function renderResults(products, source='api') {
   $('#search-status').hidden = true;
   const container = $('#results'); container.innerHTML = '';
   document.querySelector('#demo-note')?.remove();
-  if (!products.length) { $('#search-status').hidden=false; $('#search-status').innerHTML='<h3>Sin coincidencias</h3><p>Prueba con otro nombre o principio activo.</p>'; return; }
+  if (!products.length) {
+    $('#search-status').hidden=false;
+    $('#search-status').innerHTML='<h3>Sin coincidencias</h3><p>Prueba con otro nombre o principio activo.</p>';
+    $('#open-pharmacies-cta').hidden=true;
+    return;
+  }
+  const pharmacyCta=$('#open-pharmacies-cta');
+  const pharmacyLink=$('#open-pharmacies-link');
+  const selectedLocation=locationValue();
+  const turnosRegion=selectedLocation.region==='Tarapaca'?'Tarapacá':selectedLocation.region;
+  const turnosParams=new URLSearchParams({region:turnosRegion,commune:selectedLocation.commune});
+  pharmacyLink.href=`farmacias-turno.html?${turnosParams}`;
+  pharmacyLink.textContent=`Ver farmacias abiertas en ${selectedLocation.commune}`;
+  pharmacyCta.hidden=false;
   const availabilityRank=product=>product.available===true?0:product.available===false?2:1;
   products.sort((a,b)=>availabilityRank(a)-availabilityRank(b)||a.price-b.price);
   const availableBest=products.findIndex(product=>product.available===true);
@@ -328,6 +341,7 @@ function renderResults(products, source='api') {
 
 function renderApiUnavailable(query) {
   $('#results').innerHTML='';
+  $('#open-pharmacies-cta').hidden=true;
   document.querySelector('#demo-note')?.remove();
   const status=$('#search-status');
   status.hidden=false;
@@ -522,6 +536,7 @@ $('#clear-results').addEventListener('click',()=>{
   $('#search-validation').textContent='';
   $('#search-input').removeAttribute('aria-invalid');
   $('#clear-results').hidden=true;
+  $('#open-pharmacies-cta').hidden=true;
   updateHeroCoverage();
   $('#search-input').focus({preventScroll:true});
 });
@@ -767,6 +782,19 @@ const setAlertError=(input,message)=>{
   if(input){input.setAttribute('aria-invalid','true');input.focus();}
 };
 
+const alertMode=()=>document.querySelector('input[name="alert-mode"]:checked')?.value||'price';
+const syncAlertMode=()=>{
+  const replenishment=alertMode()==='replenishment';
+  $('#botiquin-fields').hidden=!replenishment;
+  $('#botiquin-quantity').required=replenishment;
+  $('#botiquin-daily-use').required=replenishment;
+  $('#alert-submit').textContent=replenishment?'Guardar en mi botiquín':'Avisarme si baja de precio';
+  $('#alert-message').textContent='';
+};
+
+document.querySelectorAll('input[name="alert-mode"]').forEach(input=>input.addEventListener('change',syncAlertMode));
+syncAlertMode();
+
 $('#alert-form').addEventListener('submit',async(event)=>{
   event.preventDefault();
   const email=$('#alert-email').value.normalize('NFC').trim().toLowerCase();
@@ -778,7 +806,27 @@ $('#alert-form').addEventListener('submit',async(event)=>{
   if(!products.some(item=>normalizeText(item.name)===normalizeText(query))){setAlertError($('#alert-query'),'Selecciona un producto desde las sugerencias reales del catálogo.');return;}
   $('#alert-query').value=query; $('#alert-email').value=email;
   ['#alert-query','#alert-email'].forEach(selector=>$(selector).removeAttribute('aria-invalid'));
-  const {region,commune}=locationValue(); const body={email,query,target_price:null,region,commune};
+  const {region,commune}=locationValue();
+  if(alertMode()==='replenishment'){
+    const quantity=Number($('#botiquin-quantity').value);
+    const dailyUse=Number($('#botiquin-daily-use').value);
+    const expiry=$('#botiquin-expiry').value;
+    if(!Number.isFinite(quantity)||quantity<=0||quantity>10000){setAlertError($('#botiquin-quantity'),'Ingresa una cantidad disponible mayor que 0 y menor o igual a 10.000.');return;}
+    if(!Number.isFinite(dailyUse)||dailyUse<=0||dailyUse>100){setAlertError($('#botiquin-daily-use'),'Ingresa un consumo diario mayor que 0 y menor o igual a 100.');return;}
+    const days=Math.max(1,Math.floor(quantity/dailyUse));
+    const replenishmentDate=new Date();
+    replenishmentDate.setDate(replenishmentDate.getDate()+days);
+    const record={
+      query,email,region,commune,quantity,daily_use:dailyUse,expiry:expiry||null,
+      estimated_replenishment:replenishmentDate.toISOString(),created_at:new Date().toISOString(),
+    };
+    const stored=JSON.parse(localStorage.getItem('ahorramed_botiquin')||'[]');
+    stored.push(record);
+    localStorage.setItem('ahorramed_botiquin',JSON.stringify(stored.slice(-50)));
+    $('#alert-message').textContent=`Producto guardado en este dispositivo. Reposición estimada: ${new Intl.DateTimeFormat('es-CL',{dateStyle:'long'}).format(replenishmentDate)}. El correo requiere habilitar el servicio de notificaciones.`;
+    return;
+  }
+  const body={email,query,target_price:null,region,commune};
   try {
     const response = await api('/api/alerts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     $('#alert-message').textContent=response.delivery_configured

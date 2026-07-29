@@ -371,7 +371,12 @@ async function loadAllCommunes(region,bounds,forceRefresh,sequence) {
   }
 }
 setOptions($('#turno-region'),Object.keys(REGION_BOUNDS),'Selecciona una región');
-$('#turno-region').value='Tarapacá';
+const initialTurnosParams=new URLSearchParams(window.location.search);
+const requestedRegion=initialTurnosParams.get('region')||'Tarapacá';
+const requestedCommune=initialTurnosParams.get('commune')||'';
+$('#turno-region').value=Object.prototype.hasOwnProperty.call(REGION_BOUNDS,requestedRegion)
+  ?requestedRegion
+  :'Tarapacá';
 $('#turno-region').addEventListener('change',event=>loadRegion(event.target.value||'Tarapacá'));
 $('#turno-commune').addEventListener('change',event=>{
   const commune=event.target.value;
@@ -429,4 +434,8 @@ $('#use-location').addEventListener('click',()=>{
   },()=>{button.disabled=false;button.textContent='⌖ Usar mi ubicación';$('#turno-status').hidden=false;$('#turno-status').textContent='No pudimos acceder a tu ubicación. Selecciona una región y comuna manualmente.';},{enableHighAccuracy:true,timeout:10000,maximumAge:300000});
 });
 $('.menu-btn').addEventListener('click',()=>{const links=$('.nav-links');links.classList.toggle('open');$('.menu-btn').setAttribute('aria-expanded',links.classList.contains('open'));});
-loadRegion();
+loadRegion(
+  $('#turno-region').value,
+  ['turno','urgencia'].includes(typeFilter)?'duty':'all',
+  requestedCommune,
+);

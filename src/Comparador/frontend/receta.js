@@ -41,7 +41,7 @@ const ADMINISTRATIVE = /\b(nombre|apellido|edad|direcci[oó]n|avenida|calle|cl[i
 const INSTRUCTION = /\b(tomar|aplicar|administrar|usar|cada|durante|horas?|d[ií]as?|sos|seg[uú]n indicaci[oó]n|v[ií]a oral)\b/i;
 
 async function loadCatalog() {
-  const manifest = await fetch('./data/manifest.json').then((response) => response.json());
+  const manifest = await fetch('./data/manifest.json',{cache:'no-store'}).then((response) => response.json());
   const entry = manifest.locations[`${$('#recipe-region').value}|${$('#recipe-commune').value}`];
   catalog = entry ? await fetch(`./data/${entry.file}`).then((response) => response.json()) : [];
   recipeSearchIndex = catalog.map((product) => ({

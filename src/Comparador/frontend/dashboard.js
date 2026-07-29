@@ -43,7 +43,7 @@ async function loadCatalog() {
   content.setAttribute('aria-busy', 'true');
   dashboardState('Cargando…', 'Consultando el catálogo disponible.');
   try {
-    const manifest = await fetchJson('./data/manifest.json');
+    const manifest = await fetchJson(`./data/manifest.json?v=${Date.now()}`);
     const entry = manifest.locations[`${$('#dashboard-region').value}|${$('#dashboard-commune').value}`];
     if (!entry) {
       catalog = [];
@@ -164,6 +164,39 @@ function render() {
   })).filter((product) => product.discount > 0 && product.discount <= 100);
   const avgDiscount = discounted.length
     ? Math.round(discounted.reduce((total, product) => total + product.discount, 0) / discounted.length) : 0;
+
+  let insights = $('#observatory-insights');
+  if (!insights) {
+    insights = document.createElement('div');
+    insights.id = 'observatory-insights';
+    insights.className = 'observatory-insights';
+    insights.setAttribute('aria-label', 'Lecturas destacadas del observatorio');
+    document.querySelector('.dashboard-grid').before(insights);
+  }
+  const now=Date.now();
+  const fresh=valid.filter((product)=>{
+    const captured=new Date(product.captured_at).getTime();
+    return Number.isFinite(captured)&&now-captured<=6*60*60*1000;
+  }).length;
+  const dated=valid.filter((product)=>Number.isFinite(new Date(product.captured_at).getTime())).length;
+  const topCoverage=coverage[0];
+  const stockReading=knownStock
+    ?`${stockPct}% de los productos con stock informado aparece disponible.`
+    :'Las farmacias no informaron stock verificable para esta selección.';
+  const freshnessReading=dated
+    ?`${Math.round(fresh*100/dated)}% de los registros con fecha fue verificado durante las últimas 6 horas.`
+    :'No hay fecha de verificación disponible para esta selección.';
+  insights.replaceChildren();
+  [
+    ['Lectura de disponibilidad',stockReading],
+    ['Frescura de los datos',freshnessReading],
+    ['Mayor cobertura',topCoverage?`${topCoverage.label} reúne ${number(topCoverage.value)} precios publicados.`:'Sin cobertura disponible.'],
+  ].forEach(([title,detail])=>{
+    const article=document.createElement('article');
+    const heading=document.createElement('b');heading.textContent=title;
+    const copy=document.createElement('p');copy.textContent=detail;
+    article.append(heading,copy);insights.appendChild(article);
+  });
 
   $('#metric-offers').textContent = number(valid.length);
   $('#metric-pharmacies').textContent = `${pharmacyGroups.size} farmacias · ${number(catalog.length - valid.length)} valores descartados`;

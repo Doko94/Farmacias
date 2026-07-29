@@ -83,6 +83,13 @@
       <div class="section-heading"><div><span class="kicker">COMPARADOR</span><h2>Resultados claros, decisiones simples</h2></div><div class="results-heading-actions"><p>Ordenamos alternativas por precio y disponibilidad. Confirma siempre concentración, formato y valor final.</p><button id="clear-results" class="clear-results-button" type="button" hidden>Limpiar resultados</button></div></div>
       <div id="search-status" class="empty-state"><div class="empty-icon">⌕</div><h3>Busca tu primer medicamento</h3><p>Escribe un nombre, marca o principio activo arriba.</p></div>
       <div id="results" class="results-grid" aria-live="polite"></div>
+      <aside id="open-pharmacies-cta" class="open-pharmacies-cta" hidden>
+        <div>
+          <span aria-hidden="true">◷</span>
+          <div><b>¿Necesitas orientarte para acudir hoy?</b><p>Consulta qué farmacias están abiertas o de turno en tu comuna. El stock publicado puede corresponder al canal web y no garantiza unidades en una sucursal específica.</p></div>
+        </div>
+        <a id="open-pharmacies-link" class="button" href="farmacias-turno.html">Ver farmacias abiertas</a>
+      </aside>
       <div id="mobile-metric-slot" class="mobile-metric-slot" aria-live="polite"></div>
     </section>
 
@@ -122,16 +129,24 @@
         <a class="feature-card-link" href="planificador.html"><article><span aria-hidden="true">◷</span><h3>Planificador de tratamiento</h3><p>Calcula cuántos envases necesitas y estima el costo de tu tratamiento.</p><b>Planificar tratamiento →</b></article></a>
         <a class="feature-card-link" href="historial.html"><article><span aria-hidden="true">↗</span><h3>Historial de precios</h3><p>Observa tendencias y distingue ofertas reales.</p><b>Ver historial →</b></article></a>
         <a class="feature-card-link" href="bioequivalentes.html"><article><span aria-hidden="true">≋</span><h3>Bioequivalentes</h3><p>Compara alternativas informadas y ahorro potencial.</p><b>Comparar alternativas →</b></article></a>
-        <a class="feature-card-link" href="dashboard.html"><article><span aria-hidden="true">⌁</span><h3>Analítica avanzada</h3><p>Dashboard de precios, ahorro, cobertura y stock.</p><b>Ver dashboard →</b></article></a>
+        <a class="feature-card-link" href="dashboard.html"><article><span aria-hidden="true">⌁</span><h3>Observatorio de precios</h3><p>Analiza diferencias de precio, disponibilidad informada, cobertura y frescura de los datos.</p><b>Ver observatorio →</b></article></a>
         <div id="api" class="feature-card-link feature-card-restricted" aria-label="API para terceros: acceso restringido"><article><span aria-hidden="true">{ }</span><div class="access-seal" role="status">⚠ ACCESO RESTRINGIDO</div><h3>API para terceros</h3><p>Integraciones disponibles previa evaluación y habilitación administrativa.</p></article></div>
       </div>
     </section>
 
     <section id="alertas" class="section dark-section"><div class="container split-grid">
-      <div><span class="kicker light">ALERTAS DE PRECIO</span><h2>Que el precio baje antes que se te acabe.</h2><p>Selecciona un producto del catálogo y te avisaremos cuando su nuevo precio sea menor que el registrado anteriormente.</p></div>
+      <div><span class="kicker light">ALERTAS Y MI BOTIQUÍN</span><h2>Sigue su precio o planifica su reposición.</h2><p>Selecciona un producto real del catálogo. Puedes registrar una alerta de precio o estimar cuándo necesitarás reponerlo. AhorraMed no conoce el vencimiento del lote: esa fecha se ingresa manualmente desde el envase.</p></div>
       <form id="alert-form" class="alert-form" novalidate>
+        <fieldset class="alert-mode-selector"><legend>¿Qué deseas registrar?</legend><label><input type="radio" name="alert-mode" value="price" checked> Baja de precio</label><label><input type="radio" name="alert-mode" value="replenishment"> Reposición o vencimiento</label></fieldset>
         <label><span>Medicamento o producto</span><input id="alert-query" list="alert-products" required minlength="2" maxlength="120" autocomplete="off" spellcheck="false" aria-describedby="alert-message" placeholder="Busca y selecciona un producto"><datalist id="alert-products"></datalist></label>
-        <label><span>Correo para recibir el aviso</span><input id="alert-email" type="email" required minlength="6" maxlength="120" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" aria-describedby="alert-message" placeholder="tu@email.cl"></label><button class="button accent" type="submit">Avisarme si baja de precio</button>
+        <label><span>Correo para recibir el aviso</span><input id="alert-email" type="email" required minlength="6" maxlength="120" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" aria-describedby="alert-message" placeholder="tu@email.cl"></label>
+        <div id="botiquin-fields" class="botiquin-fields" hidden>
+          <label><span>Cantidad disponible</span><input id="botiquin-quantity" type="number" min="0" max="10000" step="0.1" inputmode="decimal" placeholder="Ej.: 30"></label>
+          <label><span>Consumo diario</span><input id="botiquin-daily-use" type="number" min="0.1" max="100" step="0.1" inputmode="decimal" placeholder="Ej.: 2"></label>
+          <label><span>Vencimiento del envase (opcional)</span><input id="botiquin-expiry" type="month"></label>
+          <small>La reposición es una estimación. Confirma dosis y vencimiento directamente en el envase. Los datos se guardan solo en este dispositivo.</small>
+        </div>
+        <button id="alert-submit" class="button accent" type="submit">Avisarme si baja de precio</button>
         <small>Al crear una alerta aceptas nuestra <a href="/privacidad">política de privacidad</a>. La activación requiere confirmar el correo y cada aviso incluirá una opción para cancelar.</small>
         <div id="alert-message" class="form-message" role="alert" aria-live="polite"></div>
       </form>
