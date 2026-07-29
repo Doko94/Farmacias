@@ -659,8 +659,8 @@ h1 span {
 .freshness-badge.stale{color:#b42c2c;background:#fde7e7}
 .freshness-badge.unknown{color:#5f6f73;background:#edf1f2}
 .nav-dropdown{position:relative;display:inline-flex;align-items:center;padding-bottom:.7rem;margin-bottom:-.7rem}
-.nav-tools-trigger{display:inline-flex;align-items:center;gap:.32rem;padding:0;border:0;background:transparent;color:inherit;font:inherit;font-weight:700;cursor:pointer}
-.nav-tools-trigger:hover,.nav-tools-trigger:focus-visible,.nav-tools-trigger[aria-current="page"]{color:#13a797}
+.nav-tools-trigger{display:inline-flex;align-items:center;gap:.32rem;padding:0;border:0;background:transparent;color:#fff;font:inherit;font-weight:700;cursor:pointer}
+.nav-tools-trigger:hover,.nav-tools-trigger:focus-visible,.nav-tools-trigger[aria-current="page"]{color:#fff;text-decoration:underline;text-decoration-thickness:3px;text-underline-offset:7px}
 .nav-tools-trigger:focus-visible{outline:2px solid #8dd8cd;outline-offset:5px;border-radius:5px}
 .nav-tools-trigger>span{transition:transform .2s ease}
 .nav-dropdown.open .nav-tools-trigger>span{transform:rotate(180deg)}
