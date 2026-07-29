@@ -1041,3 +1041,56 @@ mobileMetricQuery.addEventListener?.('change',placeCatalogMetricCard);
 placeCatalogMetricCard();
 updateHeroCoverage();
 refreshAlertProducts();
+
+const toolsCarousel=$('#tools-carousel');
+const toolsPrevious=$('#tools-prev');
+const toolsNext=$('#tools-next');
+const toolsProgress=$('#tools-progress');
+if(toolsCarousel&&toolsPrevious&&toolsNext){
+  let carouselPointer=null;
+  let carouselStartX=0;
+  let carouselStartScroll=0;
+  let carouselDragged=false;
+  const updateToolsCarousel=()=>{
+    const max=Math.max(0,toolsCarousel.scrollWidth-toolsCarousel.clientWidth);
+    const progress=max?Math.min(1,Math.max(0,toolsCarousel.scrollLeft/max)):0;
+    toolsPrevious.disabled=toolsCarousel.scrollLeft<=2;
+    toolsNext.disabled=toolsCarousel.scrollLeft>=max-2;
+    if(toolsProgress)toolsProgress.style.transform=`translateX(${progress*455}%)`;
+  };
+  const carouselStep=()=>Math.max(245,Math.round(toolsCarousel.clientWidth*.72));
+  toolsPrevious.addEventListener('click',()=>toolsCarousel.scrollBy({left:-carouselStep(),behavior:'smooth'}));
+  toolsNext.addEventListener('click',()=>toolsCarousel.scrollBy({left:carouselStep(),behavior:'smooth'}));
+  toolsCarousel.addEventListener('scroll',()=>requestAnimationFrame(updateToolsCarousel),{passive:true});
+  toolsCarousel.addEventListener('keydown',event=>{
+    if(event.key==='ArrowRight'){event.preventDefault();toolsCarousel.scrollBy({left:carouselStep(),behavior:'smooth'});}
+    else if(event.key==='ArrowLeft'){event.preventDefault();toolsCarousel.scrollBy({left:-carouselStep(),behavior:'smooth'});}
+  });
+  toolsCarousel.addEventListener('pointerdown',event=>{
+    if(event.pointerType==='touch')return;
+    carouselPointer=event.pointerId;
+    carouselStartX=event.clientX;
+    carouselStartScroll=toolsCarousel.scrollLeft;
+    carouselDragged=false;
+    toolsCarousel.setPointerCapture(event.pointerId);
+    toolsCarousel.classList.add('dragging');
+  });
+  toolsCarousel.addEventListener('pointermove',event=>{
+    if(event.pointerId!==carouselPointer)return;
+    const delta=event.clientX-carouselStartX;
+    if(Math.abs(delta)>5)carouselDragged=true;
+    toolsCarousel.scrollLeft=carouselStartScroll-delta;
+  });
+  const finishCarouselDrag=event=>{
+    if(event.pointerId!==carouselPointer)return;
+    carouselPointer=null;
+    toolsCarousel.classList.remove('dragging');
+  };
+  toolsCarousel.addEventListener('pointerup',finishCarouselDrag);
+  toolsCarousel.addEventListener('pointercancel',finishCarouselDrag);
+  toolsCarousel.addEventListener('click',event=>{
+    if(carouselDragged){event.preventDefault();event.stopPropagation();carouselDragged=false;}
+  },true);
+  window.addEventListener('resize',updateToolsCarousel,{passive:true});
+  requestAnimationFrame(updateToolsCarousel);
+}

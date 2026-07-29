@@ -12,7 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="best-result.css?v=20260728-mobile-search1">
-  <link rel="stylesheet" href="review-fixes.css?v=20260729-tools-directory">
+  <link rel="stylesheet" href="review-fixes.css?v=20260729-tools-carousel">
 <script src="navigation.js?v=20260724-1" defer></script></head>
 <body>
   <header class="nav-wrap">
@@ -123,7 +123,13 @@
 
     <section id="herramientas" class="section container features">
       <div class="section-heading tools-heading"><div><span class="kicker">MÁS HERRAMIENTAS</span><h2>Herramientas para cada decisión</h2><p>Compara una receta completa, planifica un tratamiento o revisa cómo evolucionan los precios.</p></div></div>
-      <div class="feature-grid">
+      <div class="tool-carousel-shell">
+        <div class="tool-carousel-controls" aria-label="Controles del carrusel de herramientas">
+          <span>Desliza para explorar</span>
+          <button id="tools-prev" type="button" aria-label="Ver herramientas anteriores" disabled>←</button>
+          <button id="tools-next" type="button" aria-label="Ver más herramientas">→</button>
+        </div>
+        <div id="tools-carousel" class="feature-grid" tabindex="0" role="region" aria-label="Herramientas disponibles">
         <a class="feature-card-link" href="carrito.html"><article><span class="tool-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3.5 4.5h2l1.8 9.2a2 2 0 0 0 2 1.6h7.9a2 2 0 0 0 1.9-1.5L21 7.2H6.1"/><circle cx="10" cy="19" r="1.3"/><circle cx="18" cy="19" r="1.3"/><path d="M16.5 3.5v5M14 6h5"/></svg></span><h3>Carrito comparador</h3><p>Compara una lista completa entre distintas farmacias.</p><b>Armar carrito <span aria-hidden="true">→</span></b></article></a>
         <a class="feature-card-link" href="receta.html"><article><span class="tool-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 2.8h7l4 4V21H7z"/><path d="M14 2.8V7h4M9.5 11h6M9.5 14h6M9.5 17h3"/><path d="M4.5 6.5v14h9"/></svg></span><h3>Receta inteligente</h3><p>Revisa los medicamentos detectados antes de compararlos.</p><b>Analizar receta <span aria-hidden="true">→</span></b></article></a>
         <a class="feature-card-link" href="planificador.html"><article><span class="tool-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 9h18M8 14l2.3 2.3L16 11"/></svg></span><h3>Planificador de tratamiento</h3><p>Estima envases, duración y costo del tratamiento.</p><b>Planificar <span aria-hidden="true">→</span></b></article></a>
@@ -131,6 +137,8 @@
         <a class="feature-card-link" href="bioequivalentes.html"><article><span class="tool-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7.2 5.2a4.2 4.2 0 0 0 0 8.4h9.6a4.2 4.2 0 0 0 0-8.4z"/><path d="m9.5 5.2 5 8.4M8.5 17.5h7M10 20.5h4"/><path d="m18.5 15.5 1.2 1.2 2.1-2.4"/></svg></span><h3>Bioequivalentes</h3><p>Revisa alternativas informadas y compáralas por precio.</p><b>Ver alternativas <span aria-hidden="true">→</span></b></article></a>
         <a class="feature-card-link" href="dashboard.html"><article><span class="tool-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20V10h4v10M10 20V4h4v16M16 20v-7h4v7M2.5 20.5h19"/><path d="m4 7 4-3 4 2 7-4"/></svg></span><h3>Observatorio de precios</h3><p>Explora cobertura, disponibilidad y frescura de los datos.</p><b>Abrir observatorio <span aria-hidden="true">→</span></b></article></a>
         <div id="api" class="feature-card-link feature-card-restricted" aria-label="API para terceros: acceso restringido"><article><span class="tool-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m8 5-5 7 5 7M16 5l5 7-5 7M14 3l-4 18"/><circle cx="19" cy="5" r="2.5"/><path d="M19 3.8v2.4M17.8 5h2.4"/></svg></span><h3>API para terceros</h3><p>Integraciones disponibles previa evaluación administrativa.</p><div class="access-seal" role="status">Acceso restringido</div></article></div>
+        </div>
+        <div class="tool-carousel-progress" aria-hidden="true"><i id="tools-progress"></i></div>
       </div>
     </section>
 
@@ -163,6 +171,6 @@
   </main>
 
   <footer><div class="container footer-grid"><div><a class="brand" href="#inicio" aria-label="AhorraMed"><img class="brand-logo" src="assets/Logo_imagen_texto_transparent.png" alt="AhorraMed"></a><p>Comparador informativo. No vendemos medicamentos ni reemplazamos la orientación médica o farmacéutica.</p></div><div><b>Plataforma</b><a href="#comparar">Comparador</a><a href="receta.html">Recetas</a><a href="#alertas">Alertas</a></div><div><b>Importante</b><p>Verifica receta, concentración, stock y precio final en la farmacia antes de comprar.</p></div></div><div class="container legal-links"><a href="privacidad.html">Privacidad</a><a href="terminos.html">Términos de uso</a></div></footer>
-  <script src="app.js?v=20260729-alert-autocomplete" defer></script>
+  <script src="app.js?v=20260729-tools-carousel" defer></script>
 </body>
 </html>
