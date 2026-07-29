@@ -765,6 +765,12 @@ $('#demo-optimize').addEventListener('click', async ()=>{
   }
 });
 
+let alertCatalogProducts=[];
+let alertSuggestionItems=[];
+let activeAlertSuggestion=-1;
+let selectedAlertProduct='';
+let alertSuggestionTimer;
+
 const validAlertEmail=(value)=>{
   if(value.length<6||value.length>120||/[\r\n\s<>()[\]{}\\,;:\"\x00-\x1f\x7f]/.test(value))return false;
   const parts=value.split('@');
@@ -803,7 +809,7 @@ $('#alert-form').addEventListener('submit',async(event)=>{
   if(!/[\p{L}]{2}/u.test(query)||/(.)\1{7,}/iu.test(query)||query.split(' ').some(token=>token.length>50)){setAlertError($('#alert-query'),'Selecciona una sugerencia válida del catálogo; evita caracteres o repeticiones inusuales.');return;}
   if(!validAlertEmail(email)){setAlertError($('#alert-email'),'Ingresa un correo válido de hasta 120 caracteres (por ejemplo, nombre@dominio.cl).');return;}
   const products=await loadStaticCatalog().catch(()=>[]);
-  if(!products.some(item=>normalizeText(item.name)===normalizeText(query))){setAlertError($('#alert-query'),'Selecciona un producto desde las sugerencias reales del catálogo.');return;}
+  if(selectedAlertProduct!==normalizeText(query)||!products.some(item=>normalizeText(item.name)===normalizeText(query))){setAlertError($('#alert-query'),'Selecciona un producto desde las sugerencias reales del catálogo.');openAlertSuggestions(query);return;}
   $('#alert-query').value=query; $('#alert-email').value=email;
   ['#alert-query','#alert-email'].forEach(selector=>$(selector).removeAttribute('aria-invalid'));
   const {region,commune}=locationValue();
@@ -844,14 +850,164 @@ $('#alert-form').addEventListener('submit',async(event)=>{
   $('#alert-message').textContent='';
 }));
 
-async function refreshAlertProducts() {
-  const list=$('#alert-products');
-  try {
-    const products=await loadStaticCatalog();
-    const names=[...new Set(products.filter(item=>item.price>0).map(item=>item.name))].sort((a,b)=>a.localeCompare(b,'es'));
-    list.innerHTML=names.map(name=>`<option value="${recipeEscape(name)}"></option>`).join('');
-  } catch { list.innerHTML=''; }
+function closeAlertSuggestions(){
+  const box=$('#alert-suggestions');
+  box.hidden=true;
+  box.replaceChildren();
+  alertSuggestionItems=[];
+  activeAlertSuggestion=-1;
+  $('#alert-query').setAttribute('aria-expanded','false');
+  $('#alert-query').removeAttribute('aria-activedescendant');
 }
+
+function paintActiveAlertSuggestion(){
+  const options=[...$('#alert-suggestions').querySelectorAll('.alert-suggestion-option')];
+  options.forEach((option,index)=>{
+    const active=index===activeAlertSuggestion;
+    option.classList.toggle('active',active);
+    option.setAttribute('aria-selected',String(active));
+  });
+  const active=options[activeAlertSuggestion];
+  if(active){
+    $('#alert-query').setAttribute('aria-activedescendant',active.id);
+    active.scrollIntoView({block:'nearest'});
+  }else{
+    $('#alert-query').removeAttribute('aria-activedescendant');
+  }
+}
+
+function selectAlertSuggestion(index){
+  const product=alertSuggestionItems[index];
+  if(!product)return;
+  $('#alert-query').value=product.name;
+  selectedAlertProduct=normalizeText(product.name);
+  $('#alert-query-clear').hidden=false;
+  $('#alert-query').removeAttribute('aria-invalid');
+  $('#alert-message').textContent='';
+  closeAlertSuggestions();
+  $('#alert-query').focus();
+}
+
+function renderAlertSuggestions(items,query){
+  const box=$('#alert-suggestions');
+  box.replaceChildren();
+  alertSuggestionItems=items;
+  activeAlertSuggestion=-1;
+  if(!items.length){
+    const empty=document.createElement('div');
+    empty.className='alert-suggestion-empty';
+    empty.setAttribute('role','status');
+    empty.textContent=`No encontramos “${query}”. Prueba con una marca, otro nombre o el principio activo.`;
+    box.appendChild(empty);
+  }else{
+    items.forEach((product,index)=>{
+      const option=document.createElement('button');
+      option.type='button';
+      option.id=`alert-suggestion-${index}`;
+      option.className='alert-suggestion-option';
+      option.setAttribute('role','option');
+      option.setAttribute('aria-selected','false');
+
+      const visual=document.createElement('span');
+      visual.className='alert-suggestion-image';
+      const imageUrl=safeUrl(product.image||product.image_url||product.imagen||'');
+      if(imageUrl){
+        const image=document.createElement('img');
+        image.src=imageUrl;
+        image.alt='';
+        image.loading='lazy';
+        image.addEventListener('error',()=>{visual.textContent='+';});
+        visual.appendChild(image);
+      }else visual.textContent='+';
+
+      const copy=document.createElement('span');
+      copy.className='alert-suggestion-copy';
+      const name=document.createElement('b');
+      name.textContent=product.name;
+      const detail=document.createElement('small');
+      detail.textContent=[product.brand||product.active_ingredient,product.pharmacy].filter(Boolean).join(' · ')||'Producto del catálogo';
+      copy.append(name,detail);
+
+      const meta=document.createElement('span');
+      meta.className='alert-suggestion-meta';
+      const price=document.createElement('strong');
+      price.textContent=money(product.price);
+      const stock=document.createElement('small');
+      stock.className=product.available===true?'available':product.available===false?'unavailable':'unknown';
+      stock.textContent=product.available===true?'Con stock':product.available===false?'Sin stock':'Por confirmar';
+      meta.append(price,stock);
+      option.append(visual,copy,meta);
+      option.addEventListener('mousedown',event=>event.preventDefault());
+      option.addEventListener('click',()=>selectAlertSuggestion(index));
+      box.appendChild(option);
+    });
+  }
+  box.hidden=false;
+  $('#alert-query').setAttribute('aria-expanded','true');
+}
+
+function openAlertSuggestions(rawQuery){
+  const query=String(rawQuery||'').normalize('NFC').replace(/\s+/g,' ').trim();
+  if(query.length<2){closeAlertSuggestions();return;}
+  const normalized=normalizeText(query);
+  const queryTerms=normalized.split(' ').filter(Boolean);
+  const grouped=new Map();
+  alertCatalogProducts.filter(product=>product.price>0).forEach(product=>{
+    const searchable=normalizeText(`${product.name} ${product.brand||''} ${product.active_ingredient||''}`);
+    const offeredTerms=searchable.split(' ').filter(Boolean);
+    const matched=queryTerms.every(term=>offeredTerms.some(candidate=>
+      candidate===term||candidate.startsWith(term)||term.startsWith(candidate)||closeToken(term,candidate)
+    ));
+    if(!matched)return;
+    const key=normalizeText(product.name);
+    const score=localScore(query,product)+(normalizeText(product.name).startsWith(queryTerms[0])?1:0)+(product.available===true?.2:0);
+    const previous=grouped.get(key);
+    if(!previous||score>previous.score||(score===previous.score&&product.price<previous.price))grouped.set(key,{...product,score});
+  });
+  const matches=[...grouped.values()]
+    .sort((left,right)=>right.score-left.score||left.price-right.price||left.name.localeCompare(right.name,'es'))
+    .slice(0,8);
+  renderAlertSuggestions(matches,query);
+}
+
+async function refreshAlertProducts(){
+  closeAlertSuggestions();
+  selectedAlertProduct='';
+  $('#alert-query-clear').hidden=!$('#alert-query').value;
+  try{alertCatalogProducts=await loadStaticCatalog();}
+  catch{alertCatalogProducts=[];}
+}
+
+$('#alert-query').addEventListener('input',event=>{
+  selectedAlertProduct='';
+  $('#alert-query-clear').hidden=!event.target.value;
+  clearTimeout(alertSuggestionTimer);
+  alertSuggestionTimer=setTimeout(()=>openAlertSuggestions(event.target.value),140);
+});
+$('#alert-query').addEventListener('keydown',event=>{
+  if($('#alert-suggestions').hidden){
+    if(event.key==='ArrowDown'){event.preventDefault();openAlertSuggestions(event.target.value);}
+    return;
+  }
+  if(event.key==='ArrowDown'){event.preventDefault();activeAlertSuggestion=Math.min(activeAlertSuggestion+1,alertSuggestionItems.length-1);paintActiveAlertSuggestion();}
+  else if(event.key==='ArrowUp'){event.preventDefault();activeAlertSuggestion=Math.max(activeAlertSuggestion-1,0);paintActiveAlertSuggestion();}
+  else if(event.key==='Enter'&&activeAlertSuggestion>=0){event.preventDefault();selectAlertSuggestion(activeAlertSuggestion);}
+  else if(event.key==='Escape'){event.preventDefault();closeAlertSuggestions();}
+});
+$('#alert-query').addEventListener('focus',event=>{if(event.target.value.trim().length>=2)openAlertSuggestions(event.target.value);});
+$('#alert-query-clear').addEventListener('click',()=>{
+  clearTimeout(alertSuggestionTimer);
+  $('#alert-query').value='';
+  selectedAlertProduct='';
+  $('#alert-query-clear').hidden=true;
+  $('#alert-query').removeAttribute('aria-invalid');
+  $('#alert-message').textContent='';
+  closeAlertSuggestions();
+  $('#alert-query').focus();
+});
+document.addEventListener('pointerdown',event=>{
+  if(!event.target.closest('.alert-autocomplete'))closeAlertSuggestions();
+});
 
 $('.menu-btn').addEventListener('click',()=>{ const links=$('.nav-links'); links.classList.toggle('open'); $('.menu-btn').setAttribute('aria-expanded',links.classList.contains('open')); });
 
