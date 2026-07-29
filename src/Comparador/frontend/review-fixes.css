@@ -291,6 +291,7 @@
 /* Carrusel editorial: una sola línea, navegación explícita y microanimaciones. */
 .features .tool-carousel-shell {
   position: relative;
+  z-index: 2;
   min-width: 0;
 }
 .features .tool-carousel-controls {
@@ -351,7 +352,12 @@
   cursor: grabbing;
   user-select: none;
 }
-.features .tool-carousel-shell .feature-card-link { scroll-snap-align: start; }
+.features .tool-carousel-shell .feature-card-link {
+  position: relative;
+  z-index: 2;
+  pointer-events: auto;
+  scroll-snap-align: start;
+}
 .features .tool-carousel-shell .feature-card-link article,
 .features .tool-carousel-shell .feature-card-restricted article {
   min-height: 206px;

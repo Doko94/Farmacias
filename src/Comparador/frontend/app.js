@@ -1068,6 +1068,7 @@ if(toolsCarousel&&toolsPrevious&&toolsNext){
   });
   toolsCarousel.addEventListener('pointerdown',event=>{
     if(event.pointerType==='touch')return;
+    if(event.target.closest('a,button'))return;
     carouselPointer=event.pointerId;
     carouselStartX=event.clientX;
     carouselStartScroll=toolsCarousel.scrollLeft;
@@ -1078,7 +1079,7 @@ if(toolsCarousel&&toolsPrevious&&toolsNext){
   toolsCarousel.addEventListener('pointermove',event=>{
     if(event.pointerId!==carouselPointer)return;
     const delta=event.clientX-carouselStartX;
-    if(Math.abs(delta)>5)carouselDragged=true;
+    if(Math.abs(delta)>12)carouselDragged=true;
     toolsCarousel.scrollLeft=carouselStartScroll-delta;
   });
   const finishCarouselDrag=event=>{
