@@ -779,7 +779,10 @@ const validAlertEmail=(value)=>{
   if(!local||local.length>64||domain.length>63||!domain.includes('.')||domain.startsWith('.')||domain.endsWith('.'))return false;
   if(local.startsWith('.')||local.endsWith('.')||local.includes('..')||domain.includes('..'))return false;
   if(!/^[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+$/i.test(local))return false;
-  return domain.split('.').every(label=>/^[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?$/i.test(label));
+  const labels=domain.split('.');
+  if(!labels.every(label=>/^[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?$/i.test(label)))return false;
+  const commonTlds=new Set(['cl','com','net','org','edu','gov','mil','io','co','me','info','app','dev','tech','health','pharmacy','online','store','cloud','ai','es','ar','pe','mx','br','us','uk','de','fr','it','ca','au','jp']);
+  return commonTlds.has(labels.at(-1).toLowerCase());
 };
 
 const setAlertError=(input,message)=>{
@@ -893,6 +896,18 @@ function selectAlertSuggestion(index){
   if(!product)return;
   $('#alert-query').value=product.name;
   selectedAlertProduct=normalizeText(product.name);
+  const presentation=inferPresentation(product.name);
+  const quantity=$('#botiquin-quantity');
+  const quantityHelp=$('#botiquin-quantity-help');
+  if(presentation){
+    quantity.value=presentation.quantity;
+    quantity.dataset.autodetected='true';
+    quantityHelp.textContent=`Detectado automáticamente: ${presentation.quantity} ${presentation.label} por envase. Puedes corregirlo si la caja informa otra cantidad.`;
+  }else{
+    quantity.value='';
+    delete quantity.dataset.autodetected;
+    quantityHelp.textContent='No pudimos detectar el contenido. Revísalo directamente en el envase.';
+  }
   $('#alert-query-clear').hidden=false;
   $('#alert-query').removeAttribute('aria-invalid');
   $('#alert-message').textContent='';
@@ -1010,6 +1025,9 @@ $('#alert-query').addEventListener('focus',event=>{if(event.target.value.trim().
 $('#alert-query-clear').addEventListener('click',()=>{
   clearTimeout(alertSuggestionTimer);
   $('#alert-query').value='';
+  $('#botiquin-quantity').value='';
+  delete $('#botiquin-quantity').dataset.autodetected;
+  $('#botiquin-quantity-help').textContent='Se completa desde la presentación cuando el producto informa su contenido.';
   selectedAlertProduct='';
   $('#alert-query-clear').hidden=true;
   $('#alert-query').removeAttribute('aria-invalid');

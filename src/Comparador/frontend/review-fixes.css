@@ -150,8 +150,58 @@
 .alert-legal-note p { margin: 0; color: #456664; font-size: 10px; line-height: 1.5; }
 .alert-legal-note strong { display: block; margin-bottom: 2px; color: #064764; font-size: 11px; }
 .alert-legal-note a { color: #087f68; font-weight: 800; text-decoration: underline; text-underline-offset: 2px; }
+.alert-field-help,
+.botiquin-field-help {
+  display: block;
+  margin-top: 6px;
+  color: #5c747b;
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+.botiquin-fields > label {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+.botiquin-fields input,
+.botiquin-fields input[type="month"] {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  height: 46px;
+  margin-right: 0;
+  margin-left: 0;
+}
 
 @media (max-width: 600px) {
+  .dark-section .alert-form {
+    width: 100%;
+    min-width: 0;
+    padding: 22px 18px;
+  }
+  .alert-mode-selector,
+  .alert-mode-selector label,
+  .alert-form > label,
+  .botiquin-fields,
+  .botiquin-fields > label {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    margin-right: 0;
+    margin-left: 0;
+  }
+  .alert-mode-selector label { min-height: 54px; }
+  .botiquin-fields {
+    justify-items: stretch;
+    padding: 14px;
+  }
+  .botiquin-fields input[type="month"] {
+    appearance: auto;
+    -webkit-appearance: auto;
+  }
   .alert-suggestions { max-height: 285px; }
   .alert-suggestion-option { grid-template-columns: 42px minmax(0,1fr); }
   .alert-suggestion-meta { grid-column: 2; flex-direction: row; align-items: center; justify-content: space-between; }

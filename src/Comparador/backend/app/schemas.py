@@ -57,6 +57,14 @@ class AlertRequest(BaseModel):
         labels = domain.split(".")
         if any(not re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?", label) for label in labels):
             raise ValueError("correo no válido")
+        common_tlds = {
+            "cl", "com", "net", "org", "edu", "gov", "mil", "io", "co",
+            "me", "info", "app", "dev", "tech", "health", "pharmacy",
+            "online", "store", "cloud", "ai", "es", "ar", "pe", "mx",
+            "br", "us", "uk", "de", "fr", "it", "ca", "au", "jp",
+        }
+        if labels[-1].lower() not in common_tlds:
+            raise ValueError("dominio de correo no reconocido")
         return value
 
     @field_validator("query")
