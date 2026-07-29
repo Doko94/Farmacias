@@ -7,15 +7,23 @@ function installAuroraStyles() {
   style.id = 'aurora-clinica-styles';
   style.textContent = `
     html { background: #f8fcfb; }
-    body { position: relative; background: transparent !important; }
+    body {
+      position: relative;
+      isolation: isolate;
+      background: transparent !important;
+    }
     .neat-aurora {
       position: fixed;
-      z-index: 0;
+      z-index: -1;
       inset: 0;
       width: 100%;
       height: 100%;
-      opacity: .34;
+      opacity: .52;
       pointer-events: none;
+      background:
+        radial-gradient(circle at 82% 13%, rgba(141,221,210,.64), transparent 36%),
+        radial-gradient(circle at 18% 72%, rgba(189,235,201,.68), transparent 38%),
+        linear-gradient(145deg, #f8fcfb, #c5e3de);
     }
     html.aurora-static .neat-aurora {
       background:
@@ -23,11 +31,9 @@ function installAuroraStyles() {
         radial-gradient(circle at 18% 72%, rgba(189,235,201,.62), transparent 38%),
         linear-gradient(145deg, #f8fcfb, #c5e3de);
     }
-    body > :not(.neat-aurora) { position: relative; z-index: 1; }
-    main { background: rgba(255,255,255,.48); }
-    .hero { background: linear-gradient(135deg,rgba(242,250,245,.76),rgba(250,255,248,.68) 48%,rgba(238,247,242,.76)) !important; }
+    main { background: transparent; }
+    .hero { background: linear-gradient(135deg,rgba(242,250,245,.42),rgba(250,255,248,.30) 48%,rgba(238,247,242,.46)) !important; }
     .soft-section { background: rgba(246,248,242,.88) !important; }
-    .dark-section, .nav-wrap { isolation: isolate; }
     footer { background: rgba(243,246,242,.92) !important; }
     .neat-attribution {
       display: block;
@@ -38,8 +44,9 @@ function installAuroraStyles() {
       opacity: .72;
     }
     @media (max-width: 700px) {
-      .neat-aurora { opacity: .20; }
-      main { background: rgba(255,255,255,.68); }
+      .neat-aurora { opacity: .34; }
+      main { background: rgba(255,255,255,.16); }
+      .hero { background: rgba(248,252,251,.34) !important; }
     }
     @media (prefers-reduced-motion: reduce) {
       .neat-aurora { opacity: .18; }
@@ -92,12 +99,12 @@ async function startAurora() {
         { color: '#C5E3DE', enabled: true, influence: 0.72 },
         { color: '#8DDDD2', enabled: true, influence: 0.48 },
         { color: '#BDEBC9', enabled: true, influence: 0.58 },
-        { color: '#13A797', enabled: true, influence: 0.16 },
+        { color: '#13A797', enabled: true, influence: 0.24 },
       ],
       backgroundColor: '#F8FCFB',
       backgroundAlpha: 1,
-      speed: mobile ? 0.28 : 0.55,
-      waveAmplitude: mobile ? 0.65 : 1.15,
+      speed: mobile ? 0.38 : 0.7,
+      waveAmplitude: mobile ? 0.9 : 1.55,
       waveFrequencyX: 1.4,
       waveFrequencyY: 1.1,
       colorBlending: 8,

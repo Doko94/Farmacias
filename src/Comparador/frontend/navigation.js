@@ -103,7 +103,7 @@
       <a href="/#comparar">Comparar</a>
       <a href="/carrito"${page === 'carrito' ? ' aria-current="page"' : ''}>Carrito</a>
       <span class="nav-dropdown">
-        <a href="/#herramientas"${toolPages.includes(page) ? ' aria-current="page"' : ''}>Herramientas</a>
+        <button class="nav-tools-trigger" type="button" aria-haspopup="true" aria-expanded="false"${toolPages.includes(page) ? ' aria-current="page"' : ''}>Herramientas <span aria-hidden="true">⌄</span></button>
         <span class="nav-tool-menu" aria-label="Herramientas disponibles">
           ${tools.map(([href, label]) => `<a href="${href}"${active(href) ? ' aria-current="page"' : ''}>${label}</a>`).join('')}
         </span>
@@ -113,6 +113,21 @@
     button.setAttribute('aria-controls', 'primary-navigation');
     button.setAttribute('aria-expanded', 'false');
     links.id = 'primary-navigation';
+    const toolsDropdown = links.querySelector('.nav-dropdown');
+    const toolsTrigger = links.querySelector('.nav-tools-trigger');
+    const closeTools = () => {
+      toolsDropdown?.classList.remove('open');
+      toolsTrigger?.setAttribute('aria-expanded', 'false');
+    };
+    toolsTrigger?.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const expanded = toolsDropdown.classList.toggle('open');
+      toolsTrigger.setAttribute('aria-expanded', String(expanded));
+    });
+    document.addEventListener('click', (event) => {
+      if (!event.target.closest('.nav-dropdown')) closeTools();
+    });
 
     document.querySelectorAll('a[href]').forEach((link) => {
       const href = link.getAttribute('href');
@@ -146,15 +161,18 @@
       links.classList.contains('open') ? close() : open();
     }, true);
     links.addEventListener('click', (event) => {
+      if (event.target.closest('.nav-tool-menu a')) closeTools();
       if (event.target.closest('a')) close();
     });
     document.addEventListener('keydown', (event) => {
-      if (!links.classList.contains('open')) return;
       if (event.key === 'Escape') {
+        if (!links.classList.contains('open') && !toolsDropdown?.classList.contains('open')) return;
         event.preventDefault();
-        close(true);
+        closeTools();
+        if (links.classList.contains('open')) close(true);
         return;
       }
+      if (!links.classList.contains('open')) return;
       if (event.key !== 'Tab') return;
       const items = focusables();
       if (!items.length) return;
