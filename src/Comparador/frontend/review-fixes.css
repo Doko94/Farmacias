@@ -151,75 +151,11 @@
 .alert-legal-note strong { display: block; margin-bottom: 2px; color: #064764; font-size: 11px; }
 .alert-legal-note a { color: #087f68; font-weight: 800; text-decoration: underline; text-underline-offset: 2px; }
 
-/* Selector múltiple de seguimientos: tarjetas claras y alineadas. */
-.alert-mode-selector {
-  display: grid !important;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px !important;
-  padding: 15px !important;
-}
-.alert-mode-selector legend {
-  color: #064764;
-  font-size: 12px;
-  font-weight: 800;
-}
-.alert-mode-help {
-  grid-column: 1 / -1;
-  margin: -2px 0 2px !important;
-  color: #617b82 !important;
-  font-size: 10px;
-  font-weight: 600;
-}
-.alert-mode-selector > label {
-  display: grid !important;
-  grid-template-columns: 22px minmax(0, 1fr);
-  gap: 9px !important;
-  align-items: start !important;
-  min-height: 76px;
-  padding: 12px;
-  border: 1px solid #b9ddd8;
-  border-radius: 12px;
-  background: #f7fcfb;
-  cursor: pointer;
-}
-.alert-mode-selector > label:has(input:checked) {
-  border-color: #13a797;
-  background: #e8f8f4;
-  box-shadow: inset 0 0 0 1px #13a797;
-}
-.alert-mode-selector input[type="checkbox"] {
-  width: 19px;
-  height: 19px;
-  margin: 1px 0 0;
-  accent-color: #13a797;
-}
-.alert-mode-selector label span,
-.alert-mode-selector label b,
-.alert-mode-selector label small { min-width: 0; }
-.alert-mode-selector label span { display: flex; flex-direction: column; gap: 4px; }
-.alert-mode-selector label b { color: #064764; font-size: 11px; line-height: 1.3; }
-.alert-mode-selector label small { color: #617b82; font-size: 9px; font-weight: 600; line-height: 1.4; }
-.alert-form .button:disabled {
-  opacity: .55;
-  cursor: not-allowed;
-  transform: none;
-}
-
 @media (max-width: 600px) {
   .alert-suggestions { max-height: 285px; }
   .alert-suggestion-option { grid-template-columns: 42px minmax(0,1fr); }
   .alert-suggestion-meta { grid-column: 2; flex-direction: row; align-items: center; justify-content: space-between; }
   .alert-legal-note { padding: 13px; }
-  .alert-mode-selector {
-    grid-template-columns: 1fr;
-    gap: 9px !important;
-  }
-  .alert-mode-selector > label {
-    grid-template-columns: 24px minmax(0, 1fr);
-    min-height: 0;
-    padding: 12px 13px;
-  }
-  .alert-mode-help { grid-column: 1; }
 }
 .feature-card-restricted { cursor: not-allowed; }
 .feature-card-restricted article { position: relative; background: linear-gradient(145deg,#f7fbfa,#eef6f4); border-style: dashed; opacity: .92; }

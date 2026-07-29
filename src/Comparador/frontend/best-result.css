@@ -662,29 +662,12 @@ h1 span {
 .nav-tool-menu{position:absolute;z-index:100;right:0;top:calc(100% + .7rem);min-width:220px;padding:.55rem;background:#fff;border:1px solid #13a797;border-radius:14px;box-shadow:0 18px 42px rgba(6,71,100,.18);display:none}
 .nav-tool-menu a{display:block!important;color:#064764!important;padding:.65rem .8rem;border-radius:9px}
 .nav-tool-menu a:hover,.nav-tool-menu a:focus-visible{background:#eaf7f4}
-.nav-dropdown:hover .nav-tool-menu,.nav-dropdown:focus-within .nav-tool-menu,.nav-dropdown.open .nav-tool-menu{display:block}
-.nav-tools-trigger{display:inline-flex;align-items:center;gap:.32rem;padding:0;border:0;background:transparent;color:inherit;font:inherit;font-weight:700;cursor:pointer}
-.nav-tools-trigger:hover,.nav-tools-trigger:focus-visible,.nav-tools-trigger[aria-current="page"]{color:#13a797}
-.nav-tools-trigger:focus-visible{outline:2px solid #8dd8cd;outline-offset:5px;border-radius:5px}
-.nav-tools-trigger>span{transition:transform .2s ease}
-.nav-dropdown.open .nav-tools-trigger>span{transform:rotate(180deg)}
-
-/* Keep the tools carousel above decorative backgrounds and fully interactive. */
-.tool-carousel-shell,
-.tool-carousel-track,
-.tool-carousel-shell .feature-card-link{
-  position:relative;
-  z-index:2;
-}
-.tool-carousel-shell .feature-card-link{
-  pointer-events:auto;
-}
+.nav-dropdown:hover .nav-tool-menu,.nav-dropdown:focus-within .nav-tool-menu{display:block}
 .nav-links a[aria-current="page"]{text-decoration:underline;text-decoration-thickness:3px;text-underline-offset:7px}
 @media(max-width:760px){
   .nav-dropdown{display:block;width:100%}
   .nav-tool-menu{position:static;display:block;box-shadow:none;margin:.4rem 0 0;padding:.35rem;border-color:rgba(255,255,255,.3);background:rgba(255,255,255,.08)}
   .nav-tool-menu a{color:#fff!important;padding:.55rem 1rem}
-  .nav-tools-trigger{width:100%;justify-content:center;color:#fff}
 }
 .hero{z-index:5;overflow-x:clip;overflow-y:visible}
 .hero .hero-copy{z-index:10}

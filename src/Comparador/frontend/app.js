@@ -788,16 +788,13 @@ const setAlertError=(input,message)=>{
   if(input){input.setAttribute('aria-invalid','true');input.focus();}
 };
 
-const alertModes=()=>new Set([...document.querySelectorAll('input[name="alert-mode"]:checked')].map(input=>input.value));
+const alertMode=()=>document.querySelector('input[name="alert-mode"]:checked')?.value||'price';
 const syncAlertMode=()=>{
-  const modes=alertModes();
-  const replenishment=modes.has('replenishment');
-  const price=modes.has('price');
+  const replenishment=alertMode()==='replenishment';
   $('#botiquin-fields').hidden=!replenishment;
   $('#botiquin-quantity').required=replenishment;
   $('#botiquin-daily-use').required=replenishment;
-  $('#alert-submit').textContent=price&&replenishment?'Guardar ambos seguimientos':replenishment?'Guardar en mi botiquín':'Avisarme si baja de precio';
-  $('#alert-submit').disabled=!price&&!replenishment;
+  $('#alert-submit').textContent=replenishment?'Guardar en mi botiquín':'Avisarme si baja de precio';
   $('#alert-message').textContent='';
 };
 
@@ -808,10 +805,6 @@ $('#alert-form').addEventListener('submit',async(event)=>{
   event.preventDefault();
   const email=$('#alert-email').value.normalize('NFC').trim().toLowerCase();
   const query=$('#alert-query').value.normalize('NFC').replace(/\s+/g,' ').trim();
-  const modes=alertModes();
-  const wantsPrice=modes.has('price');
-  const wantsReplenishment=modes.has('replenishment');
-  if(!wantsPrice&&!wantsReplenishment){$('#alert-message').textContent='Selecciona al menos un tipo de seguimiento.';return;}
   if(query.length<2||query.length>120){setAlertError($('#alert-query'),'Selecciona un producto de entre 2 y 120 caracteres.');return;}
   if(!/[\p{L}]{2}/u.test(query)||/(.)\1{7,}/iu.test(query)||query.split(' ').some(token=>token.length>50)){setAlertError($('#alert-query'),'Selecciona una sugerencia válida del catálogo; evita caracteres o repeticiones inusuales.');return;}
   if(!validAlertEmail(email)){setAlertError($('#alert-email'),'Ingresa un correo válido de hasta 120 caracteres (por ejemplo, nombre@dominio.cl).');return;}
@@ -820,8 +813,7 @@ $('#alert-form').addEventListener('submit',async(event)=>{
   $('#alert-query').value=query; $('#alert-email').value=email;
   ['#alert-query','#alert-email'].forEach(selector=>$(selector).removeAttribute('aria-invalid'));
   const {region,commune}=locationValue();
-  let replenishmentMessage='';
-  if(wantsReplenishment){
+  if(alertMode()==='replenishment'){
     const quantity=Number($('#botiquin-quantity').value);
     const dailyUse=Number($('#botiquin-daily-use').value);
     const expiry=$('#botiquin-expiry').value;
@@ -837,18 +829,18 @@ $('#alert-form').addEventListener('submit',async(event)=>{
     const stored=JSON.parse(localStorage.getItem('ahorramed_botiquin')||'[]');
     stored.push(record);
     localStorage.setItem('ahorramed_botiquin',JSON.stringify(stored.slice(-50)));
-    replenishmentMessage=`Reposición guardada en este dispositivo para el ${new Intl.DateTimeFormat('es-CL',{dateStyle:'long'}).format(replenishmentDate)}.`;
-    if(!wantsPrice){$('#alert-message').textContent=replenishmentMessage;return;}
+    $('#alert-message').textContent=`Producto guardado en este dispositivo. Reposición estimada: ${new Intl.DateTimeFormat('es-CL',{dateStyle:'long'}).format(replenishmentDate)}. El correo requiere habilitar el servicio de notificaciones.`;
+    return;
   }
   const body={email,query,target_price:null,region,commune};
   try {
     const response = await api('/api/alerts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     $('#alert-message').textContent=response.delivery_configured
-      ? `${replenishmentMessage} Revisa tu correo para confirmar la alerta de precio. Podrás cancelarla desde cada aviso.`.trim()
-      : `${replenishmentMessage} La alerta de precio quedó registrada, pero el envío de correo aún no está habilitado.`.trim();
+      ? 'Revisa tu correo para confirmar la alerta. Podrás cancelarla desde cada aviso.'
+      : 'Solicitud registrada, pero el envío de correo aún no está habilitado. No recibirás avisos hasta conectar el proveedor de email.';
   }
   catch {
-    $('#alert-message').textContent=`${replenishmentMessage} La alerta de precio se guardó solo en este dispositivo; no se enviarán correos hasta conectar el servicio.`.trim();
+    $('#alert-message').textContent='Seguimiento guardado solo en este dispositivo. No se enviarán correos hasta conectar el servicio de alertas.';
     localStorage.setItem('farma_demo_alert',JSON.stringify(body));
   }
 });
