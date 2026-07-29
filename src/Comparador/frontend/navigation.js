@@ -1,4 +1,8 @@
 (() => {
+  import('./aurora-background.js').catch(() => {
+    document.documentElement.classList.add('aurora-static');
+  });
+
   const tools = [
     ['/receta', 'Receta'],
     ['/planificador', 'Planificador'],
