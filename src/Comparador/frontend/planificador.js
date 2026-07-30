@@ -18,6 +18,22 @@ const LIMITS = {
   'planner-days': { min: 1, max: 366, label: 'Días' },
 };
 const normalizeDecimal = (value) => Number(String(value).trim().replace(',', '.'));
+const plannerMobileMedia = window.matchMedia('(max-width: 600px)');
+
+function updatePlannerPlaceholder() {
+  const input = $('#planner-query');
+  if (!input) return;
+  input.placeholder = plannerMobileMedia.matches
+    ? input.dataset.placeholderMobile
+    : input.dataset.placeholderDesktop;
+}
+
+if (typeof plannerMobileMedia.addEventListener === 'function') {
+  plannerMobileMedia.addEventListener('change', updatePlannerPlaceholder);
+} else {
+  plannerMobileMedia.addListener(updatePlannerPlaceholder);
+}
+updatePlannerPlaceholder();
 
 function plannerMessage(message = '') {
   $('#planner-validation').textContent = message;
