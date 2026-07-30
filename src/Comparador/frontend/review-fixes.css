@@ -198,10 +198,33 @@
   .botiquin-fields {
     justify-items: stretch;
     padding: 14px;
+    overflow: hidden;
   }
   .botiquin-fields input[type="month"] {
-    appearance: auto;
-    -webkit-appearance: auto;
+    display: block;
+    box-sizing: border-box;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    height: 52px !important;
+    min-height: 52px !important;
+    max-height: 52px !important;
+    margin: 7px 0 0 !important;
+    padding: 0 12px !important;
+    overflow: hidden;
+    appearance: none;
+    -webkit-appearance: none;
+    font-size: 16px !important;
+    line-height: 1.2;
+  }
+  .botiquin-fields input[type="month"]::-webkit-date-and-time-value {
+    min-width: 0;
+    margin: 0;
+    text-align: left;
+  }
+  .botiquin-fields input[type="month"]::-webkit-datetime-edit {
+    min-width: 0;
+    padding: 0;
   }
   .alert-suggestions { max-height: 285px; }
   .alert-suggestion-option { grid-template-columns: 44px minmax(0,1fr); min-height: 58px; }
