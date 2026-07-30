@@ -544,6 +544,33 @@ button:disabled {
   opacity: .68;
 }
 
+#alert-submit {
+  transition: background .2s ease, box-shadow .2s ease, color .2s ease, transform .2s ease, opacity .2s ease;
+}
+
+#alert-submit.alert-ready:not(:disabled) {
+  background: linear-gradient(135deg, #13a797 0%, #30b26d 55%, #47b755 100%);
+  box-shadow: 0 10px 24px rgba(19, 167, 151, .24);
+  color: #fff;
+  opacity: 1;
+}
+
+.optional-label {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 4px;
+  padding: 2px 7px;
+  border: 1px solid #efb13d;
+  border-radius: 999px;
+  background: #fff3cd;
+  color: #8a5400;
+  font-size: .78em;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 1.2;
+  vertical-align: middle;
+}
+
 .prototype-banner {
   background: #fff3cd;
   border-bottom: 1px solid #e5a629;

@@ -799,6 +799,24 @@ const setAlertError=(input,message)=>{
 };
 
 const alertModes=()=>[...document.querySelectorAll('input[name="alert-mode"]:checked')].map(input=>input.value);
+const syncAlertSubmitState=()=>{
+  const modes=alertModes();
+  const query=$('#alert-query').value.normalize('NFC').replace(/\s+/g,' ').trim();
+  const email=$('#alert-email').value.normalize('NFC').trim().toLowerCase();
+  const selectedProduct=selectedAlertProduct&&selectedAlertProduct===normalizeText(query);
+  let ready=Boolean(modes.length&&selectedProduct&&validAlertEmail(email));
+  if(modes.includes('replenishment')){
+    const quantity=Number($('#botiquin-quantity').value);
+    const dailyUse=Number($('#botiquin-daily-use').value);
+    ready=ready
+      &&Number.isFinite(quantity)&&quantity>0&&quantity<=10000
+      &&Number.isFinite(dailyUse)&&dailyUse>0&&dailyUse<=100;
+  }
+  const submit=$('#alert-submit');
+  submit.disabled=!ready;
+  submit.setAttribute('aria-disabled',String(!ready));
+  submit.classList.toggle('alert-ready',ready);
+};
 const syncAlertMode=()=>{
   const modes=alertModes();
   const replenishment=modes.includes('replenishment');
@@ -810,6 +828,7 @@ const syncAlertMode=()=>{
     ?'Crear alerta y guardar en mi botiquín'
     :replenishment?'Guardar en mi botiquín':'Avisarme si baja de precio';
   $('#alert-message').textContent='';
+  syncAlertSubmitState();
 };
 
 document.querySelectorAll('input[name="alert-mode"]').forEach(input=>input.addEventListener('change',syncAlertMode));
@@ -867,6 +886,8 @@ $('#alert-form').addEventListener('submit',async(event)=>{
   }
 });
 
+$('#alert-form').addEventListener('input',()=>queueMicrotask(syncAlertSubmitState));
+
 ['#alert-query','#alert-email'].forEach(selector=>$(selector).addEventListener('input',()=>{
   $(selector).removeAttribute('aria-invalid');
   $('#alert-message').textContent='';
@@ -919,6 +940,7 @@ function selectAlertSuggestion(index){
   $('#alert-query').removeAttribute('aria-invalid');
   $('#alert-message').textContent='';
   closeAlertSuggestions();
+  syncAlertSubmitState();
   $('#alert-query').focus();
 }
 
@@ -1040,6 +1062,7 @@ $('#alert-query-clear').addEventListener('click',()=>{
   $('#alert-query').removeAttribute('aria-invalid');
   $('#alert-message').textContent='';
   closeAlertSuggestions();
+  syncAlertSubmitState();
   $('#alert-query').focus();
 });
 document.addEventListener('pointerdown',event=>{

@@ -12,7 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="best-result.css?v=20260729-unified-search1">
-  <link rel="stylesheet" href="review-fixes.css?v=20260730-alert-month1">
+  <link rel="stylesheet" href="review-fixes.css?v=20260730-alert-ready2">
 <script src="navigation.js?v=20260729-unified-search1" defer></script></head>
 <body>
   <header class="nav-wrap">
@@ -153,17 +153,17 @@
             <div id="alert-suggestions" class="alert-suggestions" role="listbox" aria-label="Productos sugeridos" hidden></div>
           </div>
         </label>
-        <label><span>Correo para recibir el aviso</span><input id="alert-email" type="email" required minlength="6" maxlength="120" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" aria-describedby="alert-email-help alert-message" placeholder="tu@email.cl"><small id="alert-email-help" class="alert-field-help">Debe ser una dirección real. Antes de activar los avisos enviaremos un correo de confirmación.</small></label>
+        <label><span>Correo para recibir el aviso</span><input id="alert-email" type="email" required minlength="6" maxlength="120" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" aria-describedby="alert-email-help alert-message" placeholder="tu@email.cl"><small id="alert-email-help" class="alert-field-help">Debe ser una dirección real. El envío se habilitará cuando conectemos el servicio de notificaciones.</small></label>
         <div id="botiquin-fields" class="botiquin-fields" hidden>
           <label><span>Cantidad disponible</span><input id="botiquin-quantity" type="number" min="0" max="10000" step="0.1" inputmode="decimal" placeholder="Ej.: 30"><small id="botiquin-quantity-help" class="botiquin-field-help">Se completa desde la presentación cuando el producto informa su contenido.</small></label>
           <label><span>Consumo diario</span><input id="botiquin-daily-use" type="number" min="0.1" max="100" step="0.1" inputmode="decimal" placeholder="Ej.: 2"></label>
-          <label><span>Vencimiento del envase (opcional)</span><input id="botiquin-expiry" type="month"></label>
+          <label><span>Vencimiento del envase <em class="optional-label">(opcional)</em></span><input id="botiquin-expiry" type="month"></label>
           <small>La reposición es una estimación. Confirma dosis y vencimiento directamente en el envase. Los datos se guardan solo en este dispositivo.</small>
         </div>
-        <button id="alert-submit" class="button accent" type="submit">Avisarme si baja de precio</button>
+        <button id="alert-submit" class="button accent" type="submit" disabled aria-disabled="true">Avisarme si baja de precio</button>
         <div class="alert-legal-note">
           <span class="alert-legal-icon" aria-hidden="true">✓</span>
-          <p><strong>Controlas tus avisos.</strong> Al crear una alerta aceptas nuestra <a href="/privacidad">política de privacidad</a>. Confirmaremos tu correo antes de activarla y cada mensaje incluirá una opción para cancelar.</p>
+          <p><strong>Controlas tus avisos.</strong> Al crear una alerta aceptas nuestra <a href="/privacidad">política de privacidad</a>. Por ahora se guarda en este dispositivo; el envío por correo requiere conectar el servicio de notificaciones.</p>
         </div>
         <div id="alert-message" class="form-message" role="alert" aria-live="polite"></div>
       </form>
@@ -171,6 +171,6 @@
   </main>
 
   <footer><div class="container footer-grid"><div><a class="brand" href="#inicio" aria-label="AhorraMed"><img class="brand-logo" src="assets/Logo_imagen_texto_transparent.png" alt="AhorraMed"></a><p>Comparador informativo. No vendemos medicamentos ni reemplazamos la orientación médica o farmacéutica.</p></div><div><b>Plataforma</b><a href="#comparar">Comparador</a><a href="receta.html">Recetas</a><a href="#alertas">Alertas</a></div><div><b>Importante</b><p>Verifica receta, concentración, stock y precio final en la farmacia antes de comprar.</p></div></div><div class="container legal-links"><a href="privacidad.html">Privacidad</a><a href="terminos.html">Términos de uso</a></div></footer>
-  <script src="app.js?v=20260729-unified-search1" defer></script>
+  <script src="app.js?v=20260730-alert-ready1" defer></script>
 </body>
 </html>
