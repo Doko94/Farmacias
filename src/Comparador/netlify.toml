@@ -2,6 +2,9 @@
   command = "python backend/build_static_catalog.py"
   publish = "frontend"
   functions = "netlify/functions"
+  # Los CSV viven fuera del directorio base src/Comparador. Un codigo distinto
+  # de cero indica a Netlify que NO debe omitir el deploy por ese motivo.
+  ignore = "exit 1"
 
 [[headers]]
   for = "/*"
